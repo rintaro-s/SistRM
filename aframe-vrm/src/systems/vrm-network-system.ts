@@ -42,8 +42,10 @@ AFRAME.registerSystem('vrm-network-system', {
     this.client = new NetworkClient();
     this.remoteUsers = new Map<string, RemoteUser>();
 
-    this.client.onMessage((msg: NetworkMessage) => {
-      this.handleMessage(msg);
+    this.client.setHandlers({
+      onMessage: (msg: NetworkMessage) => {
+        this.handleMessage(msg);
+      },
     });
   },
 

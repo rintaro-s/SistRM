@@ -52,41 +52,101 @@ export type NetworkMessage =
   | AvatarDeltaMessage
   | { type: 'joined_room' };
 
+export interface NetworkEventHandlers {
+  onConnected?: () => void;
+  onDisconnected?: () => void;
+  onError?: (err: Event) => void;
+  onMessage?: (msg: NetworkMessage) => void;
+}
+
 export class NetworkClient {
   private _ws: WebSocket | null = null;
   private _isConnected = false;
-  private _onMessage: ((msg: NetworkMessage) => void) | null = null;
+  private _url: string = '';
+  private _handlers: NetworkEventHandlers = {};
+  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _reconnectAttempts = 0;
+  private readonly _maxReconnectAttempts = 10;
+  private readonly _baseReconnectDelay = 1000;
 
   get isConnected(): boolean {
     return this._isConnected;
   }
 
   connect(url: string): void {
-    this._ws = new WebSocket(url);
+    this._url = url;
+    this._reconnectAttempts = 0;
+    this._connectInternal();
+  }
+
+  private _connectInternal(): void {
+    if (this._ws) {
+      try { this._ws.close(); } catch (_) {}
+      this._ws = null;
+    }
+
+    try {
+      this._ws = new WebSocket(this._url);
+    } catch (err) {
+      console.error('[vrm-network] Failed to create WebSocket:', err);
+      this._scheduleReconnect();
+      return;
+    }
+
     this._ws.onopen = () => {
       this._isConnected = true;
+      this._reconnectAttempts = 0;
+      this._handlers.onConnected?.();
     };
+
     this._ws.onclose = () => {
+      const wasConnected = this._isConnected;
       this._isConnected = false;
       this._ws = null;
+      if (wasConnected) {
+        this._handlers.onDisconnected?.();
+      }
+      this._scheduleReconnect();
     };
+
     this._ws.onerror = (err) => {
       console.error('[vrm-network] WebSocket error:', err);
+      this._handlers.onError?.(err);
     };
+
     this._ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as NetworkMessage;
-        if (this._onMessage) {
-          this._onMessage(msg);
-        }
+        this._handlers.onMessage?.(msg);
       } catch (e) {
         console.error('[vrm-network] Failed to parse message:', e);
       }
     };
   }
 
-  onMessage(handler: (msg: NetworkMessage) => void): void {
-    this._onMessage = handler;
+  private _scheduleReconnect(): void {
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    if (this._reconnectAttempts >= this._maxReconnectAttempts) {
+      console.warn('[vrm-network] Max reconnection attempts reached.');
+      return;
+    }
+    this._reconnectAttempts++;
+    const delay = Math.min(
+      this._baseReconnectDelay * Math.pow(2, this._reconnectAttempts - 1),
+      30000
+    );
+    console.log(`[vrm-network] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts})...`);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this._connectInternal();
+    }, delay);
+  }
+
+  setHandlers(handlers: NetworkEventHandlers): void {
+    this._handlers = handlers;
   }
 
   joinRoom(roomId: string, userId: string, avatarUrl: string): void {
@@ -112,8 +172,13 @@ export class NetworkClient {
   }
 
   disconnect(): void {
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    this._reconnectAttempts = this._maxReconnectAttempts; // prevent auto-reconnect
     if (this._ws) {
-      this._ws.close();
+      try { this._ws.close(); } catch (_) {}
       this._ws = null;
     }
     this._isConnected = false;

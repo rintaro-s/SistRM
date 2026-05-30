@@ -74,7 +74,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val bytes = assets.open("avatar.vrm").use { it.readBytes() }
-                val buffer = java.nio.ByteBuffer.wrap(bytes)
+                val buffer = java.nio.ByteBuffer.allocateDirect(bytes.size).apply {
+                    put(bytes)
+                    flip()
+                }
                 renderer.loadVrmBuffer(buffer, vrmData)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -420,7 +423,8 @@ class MainActivity : ComponentActivity() {
         var rotZ by remember(selectedBone) { mutableFloatStateOf(0f) }
 
         // Key bones for demo
-        val demoBones = listOf("head", "leftUpperArm", "rightUpperArm", "spine")
+        // VRM humanoid bone names are stored lower-cased in the renderer
+        val demoBones = listOf("head", "leftupperarm", "rightupperarm", "spine")
             .filter { it in boneNames }
             .ifEmpty { boneNames.take(5) }
 
@@ -482,22 +486,6 @@ class MainActivity : ComponentActivity() {
         val radX = Math.toRadians(eulerX.toDouble()).toFloat()
         val radY = Math.toRadians(eulerY.toDouble()).toFloat()
         val radZ = Math.toRadians(eulerZ.toDouble()).toFloat()
-        val q = eulerToQuaternion(radX, radY, radZ)
-        filamentRenderer?.setBoneRotation(boneName, floatArrayOf(q[0], q[1], q[2], q[3]))
-    }
-
-    private fun eulerToQuaternion(x: Float, y: Float, z: Float): FloatArray {
-        val cx = kotlin.math.cos(x * 0.5f)
-        val sx = kotlin.math.sin(x * 0.5f)
-        val cy = kotlin.math.cos(y * 0.5f)
-        val sy = kotlin.math.sin(y * 0.5f)
-        val cz = kotlin.math.cos(z * 0.5f)
-        val sz = kotlin.math.sin(z * 0.5f)
-        return floatArrayOf(
-            sx * cy * cz - cx * sy * sz,
-            cx * sy * cz + sx * cy * sz,
-            cx * cy * sz - sx * sy * cz,
-            cx * cy * cz + sx * sy * sz
-        )
+        filamentRenderer?.setBoneRotation(boneName, radX, radY, radZ)
     }
 }

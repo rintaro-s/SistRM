@@ -41,13 +41,26 @@ export interface AvatarDeltaMessage {
 export type NetworkMessage = UserJoinedMessage | UserLeftMessage | FullStateMessage | AvatarDeltaMessage | {
     type: 'joined_room';
 };
+export interface NetworkEventHandlers {
+    onConnected?: () => void;
+    onDisconnected?: () => void;
+    onError?: (err: Event) => void;
+    onMessage?: (msg: NetworkMessage) => void;
+}
 export declare class NetworkClient {
     private _ws;
     private _isConnected;
-    private _onMessage;
+    private _url;
+    private _handlers;
+    private _reconnectTimer;
+    private _reconnectAttempts;
+    private readonly _maxReconnectAttempts;
+    private readonly _baseReconnectDelay;
     get isConnected(): boolean;
     connect(url: string): void;
-    onMessage(handler: (msg: NetworkMessage) => void): void;
+    private _connectInternal;
+    private _scheduleReconnect;
+    setHandlers(handlers: NetworkEventHandlers): void;
     joinRoom(roomId: string, userId: string, avatarUrl: string): void;
     sendDelta(state: AvatarDeltaState): void;
     disconnect(): void;
