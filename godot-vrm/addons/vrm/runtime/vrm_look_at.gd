@@ -67,7 +67,7 @@ func _parse_look_at_data() -> void:
 	# Find head bone
 	_head_bone_idx = skeleton.find_bone("Head")
 	if _head_bone_idx == -1:
-		var bone_map := _humanoid.get_bone_map()
+		var bone_map := _humanoid.get_bone_map() if _humanoid.has_method("get_bone_map") else null
 		if bone_map != null and bone_map.profile != null:
 			var head_name := bone_map.get_skeleton_bone_name("Head")
 			if not head_name.is_empty():
@@ -101,7 +101,7 @@ func _parse_look_at_data() -> void:
 		_left_eye_bone_idx = skeleton.find_bone("LeftEye")
 		_right_eye_bone_idx = skeleton.find_bone("RightEye")
 		if _left_eye_bone_idx == -1:
-			var bone_map := _humanoid.get_bone_map()
+			var bone_map := _humanoid.get_bone_map() if _humanoid.has_method("get_bone_map") else null
 			if bone_map != null:
 				var left_name := bone_map.get_skeleton_bone_name("LeftEye")
 				var right_name := bone_map.get_skeleton_bone_name("RightEye")

@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 import type { AvatarDeltaState } from '../utils/network-client';
+import { packToSSCS } from '../utils/coordinates';
 
 interface VRMNetworkedComponent extends AFrameComponent {
   _sendInterval: ReturnType<typeof setInterval> | null;
   _lastSent: number;
   _cachedExpressions: Record<string, number>;
+  sendDelta(): void;
 }
 
 AFRAME.registerComponent('vrm-networked', {
@@ -84,12 +86,10 @@ AFRAME.registerComponent('vrm-networked', {
       lookAtPos.copy(pos).add(forward);
     }
 
+    const sscsTransform = packToSSCS(pos, rot, scale);
+
     const state: AvatarDeltaState = {
-      transform: {
-        pos: [pos.x, pos.y, pos.z],
-        rot: [rot.x, rot.y, rot.z, rot.w],
-        scale: [scale.x, scale.y, scale.z],
-      },
+      transform: sscsTransform,
       expressions,
       look_at: [lookAtPos.x, lookAtPos.y, lookAtPos.z],
     };

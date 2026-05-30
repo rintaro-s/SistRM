@@ -1,6 +1,10 @@
 class_name VRMNetworkClient
 extends Node
 
+## WebSocket client for SisterRM networked avatars.
+## Protocol: JSON over WebSocket with SSCS coordinate system.
+## Message types: join_room, avatar_delta, full_state, user_left
+
 @export var server_url: String = "ws://localhost:8080"
 @export var room_id: String = "default"
 @export var user_id: String = ""
@@ -60,7 +64,7 @@ func _process(_delta: float) -> void:
 		WebSocketPeer.STATE_OPEN:
 			if not _connected:
 				_connected = true
-				_send_join()
+				_send_join_room()
 				_timer.start()
 				connection_established.emit()
 			while _websocket.get_available_packets() > 0:
@@ -75,19 +79,20 @@ func _process(_delta: float) -> void:
 			set_process(false)
 
 
-func _send_join() -> void:
+func _send_join_room() -> void:
 	_send_json({
-		"type": "join",
+		"type": "join_room",
 		"room_id": room_id,
 		"user_id": user_id,
+		"avatar_url": "",
 	})
 
 
 func _on_timer_timeout() -> void:
 	if not _connected or _local_vrm == null:
 		return
-	var state := _gather_local_state()
-	_send_json(state)
+	var delta := _gather_local_state()
+	_send_json(delta)
 
 
 func _gather_local_state() -> Dictionary:
@@ -102,21 +107,29 @@ func _gather_local_state() -> Dictionary:
 		if la != null:
 			look_at_target = la.get_look_at_target()
 
+	# Godot is natively SSCS (RH, Y-up); use converter explicitly for documentation
+	var quat := _local_vrm.global_transform.basis.get_rotation_quaternion()
+	var sscs := VRMCoordinateConverter.convert_transform(
+		_local_vrm.global_position,
+		quat,
+		_local_vrm.global_scale,
+		VRMCoordinateConverter.CoordinateSystem.SSCS,
+		VRMCoordinateConverter.CoordinateSystem.SSCS
+	)
+
 	return {
-		"type": "state",
+		"type": "avatar_delta",
 		"room_id": room_id,
 		"user_id": user_id,
+		"timestamp": Time.get_ticks_msec(),
 		"transform": {
-			"position": [_local_vrm.global_position.x, _local_vrm.global_position.y, _local_vrm.global_position.z],
-			"rotation": [_local_vrm.global_rotation.x, _local_vrm.global_rotation.y, _local_vrm.global_rotation.z],
-			"scale": [_local_vrm.global_scale.x, _local_vrm.global_scale.y, _local_vrm.global_scale.z],
+			"pos": [sscs.position.x, sscs.position.y, sscs.position.z],
+			"rot": [sscs.rotation.x, sscs.rotation.y, sscs.rotation.z, sscs.rotation.w],
+			"scale": [sscs.scale.x, sscs.scale.y, sscs.scale.z],
 		},
 		"expressions": expressions,
-		"look_at": {
-			"x": look_at_target.x,
-			"y": look_at_target.y,
-			"z": look_at_target.z,
-		},
+		"look_at": [look_at_target.x, look_at_target.y, look_at_target.z],
+		"bone_rotations": {},
 	}
 
 
@@ -136,25 +149,31 @@ func _handle_message(text: String) -> void:
 	var data: Dictionary = json.get_data()
 	var msg_type: String = data.get("type", "")
 	match msg_type:
-		"room_state":
-			_update_room_state(data.get("users", {}))
+		"full_state":
+			_update_room_state(data.get("entities", []))
+		"user_joined":
+			var uid: String = data.get("user_id", "")
+			if uid != user_id and not _remote_avatars.has(uid):
+				_spawn_remote(uid)
 		"user_left":
 			var uid: String = data.get("user_id", "")
 			_despawn_remote(uid)
 
 
-func _update_room_state(users: Dictionary) -> void:
-	for uid in users.keys():
-		if uid == user_id:
+func _update_room_state(entities: Array) -> void:
+	var present_uids: Dictionary = {}
+	for entity in entities:
+		var uid: String = entity.get("user_id", "")
+		if uid == user_id or uid.is_empty():
 			continue
-		var user_data: Dictionary = users[uid]
+		present_uids[uid] = true
 		if not _remote_avatars.has(uid):
 			_spawn_remote(uid)
-		_apply_remote_state(uid, user_data)
+		_apply_remote_state(uid, entity)
 	# Despawn users no longer in room state
 	var to_remove: Array[String] = []
 	for uid in _remote_avatars.keys():
-		if not users.has(uid):
+		if not present_uids.has(uid):
 			to_remove.append(uid)
 	for uid in to_remove:
 		_despawn_remote(uid)
@@ -188,12 +207,21 @@ func _apply_remote_state(uid: String, data: Dictionary) -> void:
 		return
 	var avatar: Node3D = _remote_avatars[uid]
 	var transform_data: Dictionary = data.get("transform", {})
-	var pos: Array = transform_data.get("position", [0, 0, 0])
-	var rot: Array = transform_data.get("rotation", [0, 0, 0])
-	var scl: Array = transform_data.get("scale", [1, 1, 1])
-	avatar.global_position = Vector3(pos[0], pos[1], pos[2])
-	avatar.global_rotation = Vector3(rot[0], rot[1], rot[2])
-	avatar.global_scale = Vector3(scl[0], scl[1], scl[2])
+	var pos_arr: Array = transform_data.get("pos", [0, 0, 0])
+	var rot_arr: Array = transform_data.get("rot", [0, 0, 0, 1])
+	var scl_arr: Array = transform_data.get("scale", [1, 1, 1])
+
+	var pos := Vector3(pos_arr[0], pos_arr[1], pos_arr[2])
+	var rot := Quaternion(rot_arr[0], rot_arr[1], rot_arr[2], rot_arr[3])
+	var scl := Vector3(scl_arr[0], scl_arr[1], scl_arr[2])
+
+	# Convert from SSCS to Godot (identity, but explicit)
+	var godot := VRMCoordinateConverter.convert_transform(
+		pos, rot, scl,
+		VRMCoordinateConverter.CoordinateSystem.SSCS,
+		VRMCoordinateConverter.CoordinateSystem.SSCS
+	)
+	avatar.global_transform = Transform3D(Basis(godot.rotation).scaled(godot.scale), godot.position)
 
 	var expressions: Dictionary = data.get("expressions", {})
 	if avatar.has_method("get_expression_manager"):
@@ -202,15 +230,11 @@ func _apply_remote_state(uid: String, data: Dictionary) -> void:
 			for expr_name in expressions.keys():
 				em.set_expression(expr_name, expressions[expr_name])
 
-	var look_at_data: Dictionary = data.get("look_at", {})
-	if avatar.has_method("get_look_at"):
+	var look_at_arr: Array = data.get("look_at", [])
+	if look_at_arr.size() >= 3 and avatar.has_method("get_look_at"):
 		var la := avatar.get_look_at() as VRMLookAt
 		if la != null:
-			la.target_position = Vector3(
-				look_at_data.get("x", 0.0),
-				look_at_data.get("y", 0.0),
-				look_at_data.get("z", 0.0)
-			)
+			la.target_position = Vector3(look_at_arr[0], look_at_arr[1], look_at_arr[2])
 
 
 func get_remote_avatars() -> Dictionary:

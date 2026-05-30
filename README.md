@@ -55,6 +55,29 @@ WebSocket hub for synchronizing avatar state across all platforms.
 - Static VRM asset serving
 - BoltDB + SQLite persistence
 
+## SisterRM Standard Coordinate System (SSCS)
+
+All libraries use a **single canonical coordinate system** to ensure seamless cross-platform interoperability — even when communicating peer-to-peer without the server.
+
+| Property | Value |
+|----------|-------|
+| Handedness | Right-handed |
+| Up | +Y |
+| Forward | -Z |
+| Units | Meters |
+
+**Platform conversions included in every library:**
+
+| Platform | Native ↔ SSCS |
+|----------|---------------|
+| Three.js / A-Frame | **Identity** |
+| Godot 4 | **Identity** |
+| Android / Filament | **Identity** |
+| Unity / UniVRM | `convertQuaternionLhToRh()`, `(-x, y, z)` position flip |
+| VRM 0.0 raw | 180° Y rotation correction |
+
+Each library provides `toStandard()` / `fromStandard()` / `convert(A, B)` utilities. See `vrm-protocol/spec/coordinate-systems.md`.
+
 ## Unified API Pattern
 
 All platforms share a common conceptual API derived from UniVRM and three-vrm:

@@ -19,13 +19,39 @@ const (
 )
 
 // Vec3 represents a 3D vector.
+// JSON serialization uses compact array format [x, y, z].
 type Vec3 struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
 }
 
+// MarshalJSON serializes Vec3 as [x, y, z].
+func (v Vec3) MarshalJSON() ([]byte, error) {
+	return json.Marshal([3]float64{v.X, v.Y, v.Z})
+}
+
+// UnmarshalJSON deserializes Vec3 from [x, y, z] or {"x":x,"y":y,"z":z}.
+func (v *Vec3) UnmarshalJSON(data []byte) error {
+	var arr [3]float64
+	if err := json.Unmarshal(data, &arr); err == nil {
+		v.X, v.Y, v.Z = arr[0], arr[1], arr[2]
+		return nil
+	}
+	var obj struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+		Z float64 `json:"z"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	v.X, v.Y, v.Z = obj.X, obj.Y, obj.Z
+	return nil
+}
+
 // Quaternion represents a 4D rotation.
+// JSON serialization uses compact array format [x, y, z, w].
 type Quaternion struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -33,20 +59,57 @@ type Quaternion struct {
 	W float64 `json:"w"`
 }
 
+// MarshalJSON serializes Quaternion as [x, y, z, w].
+func (q Quaternion) MarshalJSON() ([]byte, error) {
+	return json.Marshal([4]float64{q.X, q.Y, q.Z, q.W})
+}
+
+// UnmarshalJSON deserializes Quaternion from [x, y, z, w] or {"x":x,"y":y,"z":z,"w":w}.
+func (q *Quaternion) UnmarshalJSON(data []byte) error {
+	var arr [4]float64
+	if err := json.Unmarshal(data, &arr); err == nil {
+		q.X, q.Y, q.Z, q.W = arr[0], arr[1], arr[2], arr[3]
+		return nil
+	}
+	var obj struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+		Z float64 `json:"z"`
+		W float64 `json:"w"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	q.X, q.Y, q.Z, q.W = obj.X, obj.Y, obj.Z, obj.W
+	return nil
+}
+
 // Transform represents position, rotation, and scale.
 type Transform struct {
-	Position Vec3 `json:"pos"`
-	Rotation Vec3 `json:"rot"`
-	Scale    Vec3 `json:"scale"`
+	Position Vec3       `json:"pos"`
+	Rotation Quaternion `json:"rot"`
+	Scale    Vec3       `json:"scale"`
 }
+
+// CoordinateSystem identifies the source coordinate system.
+type CoordinateSystem string
+
+const (
+	CoordSSCS     CoordinateSystem = "SSCS"
+	CoordUnity    CoordinateSystem = "UNITY"
+	CoordVrm0Raw  CoordinateSystem = "VRM0_RAW"
+)
 
 // EntityState represents the full synchronized state of an avatar.
 type EntityState struct {
-	UserID        string                `json:"user_id"`
-	Transform     Transform             `json:"transform"`
-	Expressions   map[string]float64    `json:"expressions"`
-	BoneRotations map[string]Quaternion `json:"bone_rotations"`
-	LookAt        Vec3                  `json:"look_at"`
+	UserID           string                `json:"user_id"`
+	DisplayName      string                `json:"display_name,omitempty"`
+	AvatarURL        string                `json:"avatar_url,omitempty"`
+	CoordinateSystem CoordinateSystem      `json:"coordinate_system,omitempty"`
+	Transform        Transform             `json:"transform"`
+	Expressions      map[string]float64    `json:"expressions"`
+	BoneRotations    map[string]Quaternion `json:"bone_rotations"`
+	LookAt           Vec3                  `json:"look_at"`
 }
 
 // JoinRoomMessage is sent by a client to join a room.
@@ -72,14 +135,15 @@ type FullStateMessage struct {
 
 // AvatarDeltaMessage is sent by a client to update its avatar state.
 type AvatarDeltaMessage struct {
-	Type          MessageType          `json:"type"`
-	UserID        string               `json:"user_id"`
-	RoomID        string               `json:"room_id"`
-	Transform     *Transform           `json:"transform,omitempty"`
-	Expressions   map[string]float64   `json:"expressions,omitempty"`
-	BoneRotations map[string]Quaternion `json:"bone_rotations,omitempty"`
-	LookAt        *Vec3                `json:"look_at,omitempty"`
-	Timestamp     int64                `json:"timestamp"`
+	Type             MessageType          `json:"type"`
+	UserID           string               `json:"user_id"`
+	RoomID           string               `json:"room_id"`
+	CoordinateSystem CoordinateSystem     `json:"coordinate_system,omitempty"`
+	Transform        *Transform           `json:"transform,omitempty"`
+	Expressions      map[string]float64   `json:"expressions,omitempty"`
+	BoneRotations    map[string]Quaternion `json:"bone_rotations,omitempty"`
+	LookAt           *Vec3                `json:"look_at,omitempty"`
+	Timestamp        int64                `json:"timestamp"`
 }
 
 // RoomEventMessage is used for chat, RPC, or other room-level events.
@@ -145,7 +209,7 @@ func validateTransform(t Transform) error {
 	if err := validateVec3(t.Position); err != nil {
 		return fmt.Errorf("position: %w", err)
 	}
-	if err := validateVec3(t.Rotation); err != nil {
+	if err := validateQuaternion(t.Rotation); err != nil {
 		return fmt.Errorf("rotation: %w", err)
 	}
 	if err := validateVec3(t.Scale); err != nil {

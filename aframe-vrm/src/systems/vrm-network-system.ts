@@ -8,6 +8,7 @@ import {
   type FullStateMessage,
   type AvatarDeltaMessage,
 } from '../utils/network-client';
+import { unpackFromSSCS } from '../utils/coordinates';
 
 interface RemoteUser {
   entity: AFrameEntity;
@@ -32,6 +33,7 @@ interface VRMNetworkSystem extends AFrameSystem {
   spawnRemoteUser(userId: string, avatarUrl: string): void;
   removeRemoteUser(userId: string): void;
   applyRemoteDelta(userId: string, delta: AvatarDeltaMessage): void;
+  handleMessage(msg: NetworkMessage): void;
 }
 
 AFRAME.registerSystem('vrm-network-system', {
@@ -77,21 +79,22 @@ AFRAME.registerSystem('vrm-network-system', {
       }
       case 'full_state': {
         const full = msg as FullStateMessage;
-        for (const user of full.users) {
-          if (!this.remoteUsers.has(user.user_id)) {
-            this.spawnRemoteUser(user.user_id, user.avatar_url);
+        for (const entity of full.entities) {
+          if (!this.remoteUsers.has(entity.user_id)) {
+            this.spawnRemoteUser(entity.user_id, entity.avatar_url);
           }
-          const remote = this.remoteUsers.get(user.user_id);
-          if (remote && user.transform) {
-            remote.targetPos.set(...user.transform.pos);
-            remote.targetRot.set(...user.transform.rot);
-            remote.targetScale.set(...user.transform.scale);
+          const remote = this.remoteUsers.get(entity.user_id);
+          if (remote && entity.transform) {
+            const sscs = unpackFromSSCS(entity.transform.pos, entity.transform.rot, entity.transform.scale);
+            remote.targetPos.copy(sscs.position);
+            remote.targetRot.copy(sscs.rotation);
+            remote.targetScale.copy(sscs.scale);
           }
-          if (remote && user.expressions) {
-            Object.assign(remote.targetExpressions, user.expressions);
+          if (remote && entity.expressions) {
+            Object.assign(remote.targetExpressions, entity.expressions);
           }
-          if (remote && user.look_at) {
-            remote.targetLookAt.set(...user.look_at);
+          if (remote && entity.look_at) {
+            remote.targetLookAt.set(...entity.look_at);
           }
         }
         break;
@@ -148,9 +151,10 @@ AFRAME.registerSystem('vrm-network-system', {
     }
     const remote = this.remoteUsers.get(userId)!;
     if (delta.transform) {
-      remote.targetPos.set(...delta.transform.pos);
-      remote.targetRot.set(...delta.transform.rot);
-      remote.targetScale.set(...delta.transform.scale);
+      const sscs = unpackFromSSCS(delta.transform.pos, delta.transform.rot, delta.transform.scale);
+      remote.targetPos.copy(sscs.position);
+      remote.targetRot.copy(sscs.rotation);
+      remote.targetScale.copy(sscs.scale);
     }
     if (delta.expressions) {
       Object.assign(remote.targetExpressions, delta.expressions);

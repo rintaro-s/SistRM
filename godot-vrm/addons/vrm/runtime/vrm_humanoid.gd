@@ -79,31 +79,62 @@ const BONE_NAME_MAP: Dictionary = {
 	"rightLittleDistal": HumanoidBoneName.RightLittleDistal,
 }
 
-var _instance: VRMInstance = null
+var _instance: Node3D = null
 var _skeleton: Skeleton3D = null
 var _bone_name_to_idx: Dictionary = {}
 
-func _init(instance: VRMInstance, skeleton: Skeleton3D):
+func _init(instance: Node3D, skeleton: Skeleton3D = null):
 	_instance = instance
-	_skeleton = skeleton
+	if skeleton != null:
+		_skeleton = skeleton
+	else:
+		_skeleton = _find_skeleton()
 	_build_bone_map()
+
+func _find_skeleton() -> Skeleton3D:
+	if _instance != null:
+		if _instance.has_method("get_general_skeleton"):
+			return _instance.get_general_skeleton()
+		for child in _instance.get_children():
+			if child is Skeleton3D:
+				return child
+	return null
 
 func _build_bone_map():
 	_bone_name_to_idx.clear()
-	var meta = _instance.vrm_meta
-	if meta == null or not meta is Resource:
+	if _skeleton == null:
 		return
-	var bone_map = meta.get("humanoid_bone_mapping")
-	if bone_map == null or not bone_map is BoneMap:
-		return
-	var profile: SkeletonProfileHumanoid = bone_map.profile
-	for i in range(profile.bone_size):
-		var bone_name = profile.get_bone_name(i)
-		var skeleton_bone_name = bone_map.get_skeleton_bone_name(bone_name)
-		if not skeleton_bone_name.is_empty():
-			var bone_idx = _skeleton.find_bone(skeleton_bone_name)
-			if bone_idx >= 0:
-				_bone_name_to_idx[bone_name] = bone_idx
+	# Try to get bone mapping from VRM meta if available
+	var meta = null
+	if _instance != null and _instance.has_meta("vrm_meta"):
+		meta = _instance.get_meta("vrm_meta")
+	elif _instance != null and _instance.get("vrm_meta") != null:
+		meta = _instance.get("vrm_meta")
+	
+	if meta != null and meta is Resource:
+		var bone_map = meta.get("humanoid_bone_mapping")
+		if bone_map != null and bone_map is BoneMap:
+			var profile: SkeletonProfileHumanoid = bone_map.profile
+			for i in range(profile.bone_size):
+				var bone_name = profile.get_bone_name(i)
+				var skeleton_bone_name = bone_map.get_skeleton_bone_name(bone_name)
+				if not skeleton_bone_name.is_empty():
+					var bone_idx = _skeleton.find_bone(skeleton_bone_name)
+					if bone_idx >= 0:
+						_bone_name_to_idx[bone_name] = bone_idx
+			return
+	
+	# Fallback: map by direct bone name search
+	for name in BONE_NAME_MAP.keys():
+		var idx = _skeleton.find_bone(name)
+		if idx >= 0:
+			_bone_name_to_idx[name] = idx
+		else:
+			# Try capitalized variant
+			var cap_name = name.capitalize().replace(" ", "")
+			idx = _skeleton.find_bone(cap_name)
+			if idx >= 0:
+				_bone_name_to_idx[name] = idx
 
 func get_bone_index(bone_name: String) -> int:
 	return _bone_name_to_idx.get(bone_name, -1)

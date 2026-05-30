@@ -31,7 +31,7 @@ export interface UserLeftMessage extends NetworkMessage {
 }
 export interface FullStateMessage extends NetworkMessage {
     type: 'full_state';
-    users: Array<{
+    entities: Array<{
         user_id: string;
         avatar_url: string;
         transform?: AvatarDeltaMessage['transform'];

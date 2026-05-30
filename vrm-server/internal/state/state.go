@@ -39,18 +39,22 @@ func (ws *WorldState) UpdateEntity(delta protocol.AvatarDeltaMessage) {
 	ent, exists := ws.entities[delta.UserID]
 	if !exists {
 		ent = &protocol.EntityState{
-			UserID:        delta.UserID,
-			Expressions:   make(map[string]float64),
-			BoneRotations: make(map[string]protocol.Quaternion),
+			UserID:           delta.UserID,
+			CoordinateSystem: protocol.CoordSSCS,
+			Expressions:      make(map[string]float64),
+			BoneRotations:    make(map[string]protocol.Quaternion),
 		}
 		ws.entities[delta.UserID] = ent
 	}
 
+	// Normalize coordinates to SSCS
 	if delta.Transform != nil {
-		ent.Transform = clampTransform(*delta.Transform)
+		t := normalizeToSSCS(*delta.Transform, delta.CoordinateSystem)
+		ent.Transform = clampTransform(t)
 	}
 	if delta.LookAt != nil {
-		ent.LookAt = clampVec3(*delta.LookAt)
+		la := normalizeVec3ToSSCS(*delta.LookAt, delta.CoordinateSystem)
+		ent.LookAt = clampVec3(la)
 	}
 	for k, v := range delta.Expressions {
 		clamped := math.Max(minExpressionValue, math.Min(maxExpressionValue, v))
@@ -59,6 +63,7 @@ func (ws *WorldState) UpdateEntity(delta protocol.AvatarDeltaMessage) {
 	for k, v := range delta.BoneRotations {
 		ent.BoneRotations[k] = clampQuaternion(v)
 	}
+	ent.CoordinateSystem = protocol.CoordSSCS // Server stores in SSCS
 }
 
 // RemoveEntity removes an entity from the world.
@@ -147,11 +152,7 @@ func clampVec3(v protocol.Vec3) protocol.Vec3 {
 func clampTransform(t protocol.Transform) protocol.Transform {
 	return protocol.Transform{
 		Position: clampVec3(t.Position),
-		Rotation: protocol.Vec3{
-			X: clampFloat(t.Rotation.X, -maxRotation, maxRotation),
-			Y: clampFloat(t.Rotation.Y, -maxRotation, maxRotation),
-			Z: clampFloat(t.Rotation.Z, -maxRotation, maxRotation),
-		},
+		Rotation: clampQuaternion(t.Rotation),
 		Scale: protocol.Vec3{
 			X: clampFloat(t.Scale.X, minScale, maxScale),
 			Y: clampFloat(t.Scale.Y, minScale, maxScale),
@@ -162,10 +163,51 @@ func clampTransform(t protocol.Transform) protocol.Transform {
 
 func clampQuaternion(q protocol.Quaternion) protocol.Quaternion {
 	return protocol.Quaternion{
-		X: clampFloat(q.X, -maxBoneRot, maxBoneRot),
-		Y: clampFloat(q.Y, -maxBoneRot, maxBoneRot),
-		Z: clampFloat(q.Z, -maxBoneRot, maxBoneRot),
-		W: clampFloat(q.W, -maxBoneRot, maxBoneRot),
+		X: clampFloat(q.X, -1, 1),
+		Y: clampFloat(q.Y, -1, 1),
+		Z: clampFloat(q.Z, -1, 1),
+		W: clampFloat(q.W, -1, 1),
+	}
+}
+
+// ==================== Coordinate System Normalization ====================
+
+func normalizeToSSCS(t protocol.Transform, coord protocol.CoordinateSystem) protocol.Transform {
+	if coord == protocol.CoordSSCS || coord == "" {
+		return t
+	}
+	pos := normalizeVec3ToSSCS(t.Position, coord)
+	rot := normalizeRotationToSSCS(t.Rotation, coord)
+	return protocol.Transform{Position: pos, Rotation: rot, Scale: t.Scale}
+}
+
+func normalizeVec3ToSSCS(v protocol.Vec3, coord protocol.CoordinateSystem) protocol.Vec3 {
+	if coord == protocol.CoordSSCS || coord == "" {
+		return v
+	}
+	switch coord {
+	case protocol.CoordUnity:
+		return protocol.Vec3{X: -v.X, Y: v.Y, Z: v.Z}
+	case protocol.CoordVrm0Raw:
+		return protocol.Vec3{X: -v.X, Y: v.Y, Z: -v.Z}
+	default:
+		return v
+	}
+}
+
+func normalizeRotationToSSCS(q protocol.Quaternion, coord protocol.CoordinateSystem) protocol.Quaternion {
+	if coord == protocol.CoordSSCS || coord == "" {
+		return q
+	}
+	switch coord {
+	case protocol.CoordUnity:
+		// LH ↔ RH: negate all components (conjugate / inverse rotation)
+		return protocol.Quaternion{X: -q.X, Y: -q.Y, Z: -q.Z, W: q.W}
+	case protocol.CoordVrm0Raw:
+		// 180° Y rotation
+		return protocol.Quaternion{X: q.Z, Y: q.Y, Z: -q.X, W: -q.W}
+	default:
+		return q
 	}
 }
 
