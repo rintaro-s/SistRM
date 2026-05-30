@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="5e10e336-caa2-4400-892e-188f4f58e848" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../../README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/dist/aframe-vrm.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/dist/aframe-vrm.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/dist/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/dist/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/dist/utils/network-client.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/dist/utils/network-client.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/src/components/vrm-networked.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/src/components/vrm-networked.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/src/systems/vrm-network-system.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/src/systems/vrm-network-system.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../aframe-vrm/src/utils/network-client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../aframe-vrm/src/utils/network-client.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../android-vrm/vrm-network/src/main/java/com/sisterm/vrm/network/VRMNetworkClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../../android-vrm/vrm-network/src/main/java/com/sisterm/vrm/network/VRMNetworkClient.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/proguard-rules.pro" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/nbks/vrm/ExampleInstrumentedTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/nbks/vrm/MainActivity.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/nbks/vrm/ui/theme/Color.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/nbks/vrm/ui/theme/Theme.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/nbks/vrm/ui/theme/Type.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_background.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_foreground.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi/ic_launcher.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi/ic_launcher_round.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/themes.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/backup_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/data_extraction_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/com/nbks/vrm/ExampleUnitTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/gradle-daemon-jvm.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/libs.versions.toml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_humanoid.gd" beforeDir="false" afterPath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_humanoid.gd" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_look_at.gd" beforeDir="false" afterPath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_look_at.gd" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_network_client.gd" beforeDir="false" afterPath="$PROJECT_DIR$/../../godot-vrm/addons/vrm/runtime/vrm_network_client.gd" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../vrm-server/internal/state/state.go" beforeDir="false" afterPath="$PROJECT_DIR$/../../vrm-server/internal/state/state.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../vrm-server/pkg/protocol/protocol.go" beforeDir="false" afterPath="$PROJECT_DIR$/../../vrm-server/pkg/protocol/protocol.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../vrm-server/server" beforeDir="false" afterPath="$PROJECT_DIR$/../../vrm-server/server" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 4
+}]]></component>
+  <component name="ProjectId" id="3EQsYWHJaMHc6BgQDpMs2iNNILv" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "android.gradle.sync.needed": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "master",
+    "kotlin-language-version-configured": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5e10e336-caa2-4400-892e-188f4f58e848" name="Changes" comment="" />
+      <created>1780122177056</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780122177056</updated>
+    </task>
+    <servers />
+  </component>
+</project>
