@@ -10,6 +10,7 @@ This directory contains runnable demos for all SisterRM platforms using the same
 cd ../vrm-server
 go run ./cmd/server
 # Server runs on http://localhost:8080
+# WebSocket at ws://localhost:8080/ws
 ```
 
 ### 2. Run the Web Demo (A-Frame)
@@ -18,43 +19,52 @@ go run ./cmd/server
 cd ../aframe-vrm
 npm install
 npm run build
-cp dist/aframe-vrm.js ../example/web/
 cd ../example
 python3 -m http.server 3000
 # Open http://localhost:3000/web/ in your browser
 ```
 
+The A-Frame demo loads `aframe-vrm/dist/aframe-vrm.js` and displays a local avatar
+with network sync.
+
 ### 3. Run the Godot Demo
 
-Copy the demo files into the Godot VRM project:
-```bash
-cp godot/demo_scene.tscn godot/demo_script.gd ../godot-vrm/
-cp -r assets ../godot-vrm/
-```
+Import `../godot-vrm/` as a Godot 4.x addon. Create a scene with:
+- A `VRMTopLevel` node (import a VRM via the addon)
+- A `SisterRMNetworkClient` child node
 
-Open `../godot-vrm/` in Godot 4.2+ and run `demo_scene.tscn`.
+See `../godot-vrm/addons/vrm/runtime/README.md` for usage.
 
 ### 4. Run the Android Demo
 
-Open `../android-vrm` in Android Studio and run the `:vrm-sample:installDebug` task.
+```bash
+cd Android-app
+./gradlew assembleDebug
+# Install app/build/outputs/apk/debug/app-debug.apk
+```
 
-Or use the standalone example activity at `android/MainActivity.kt` — copy it into the sample module and wire it into `AndroidManifest.xml`.
+The Android demo uses Google Filament to render the VRM with Compose UI overlay.
+It includes expression sliders, bone display, and network sync.
 
 ## What Each Demo Shows
 
 | Feature | Web (A-Frame) | Godot | Android |
 |---------|--------------|-------|---------|
-| VRM Loading | `vrm-model` component | GLTF import + VRMInstance | GltfParser + VrmData |
-| Expressions | `vrm-expressions` | VRMExpressionManager | VRMExpressionManager |
-| LookAt | `vrm-look-at` | VRMLookAt | VRMLookAt |
-| SpringBone | `vrm-spring-bone` | vrm_secondary | VRMSpringBoneManager |
-| Network Sync | `vrm-networked` | VRMNetworkClient | VRMNetworkClient |
-| Coordinate System | Three.js (native SSCS) | Godot (native SSCS) | Filament-ready (native SSCS) |
+| VRM Loading | `@pixiv/three-vrm` | godot-vrm addon | Filament gltfio |
+| Expressions | `VRMExpressionManager` | `SisterRMRuntime` | `VRMFilamentRenderer` + morph targets |
+| LookAt | `VRMLookAt` | `SisterRMRuntime` | Camera manipulator |
+| SpringBone | `VRMSpringBoneManager` | `VRMSecondary` | ⏳ |
+| Network Sync | `vrm-network-system` | `SisterRMNetworkClient` | `VRMNetworkClient` |
+| First-Person | `vrm-first-person` | `SisterRMRuntime` | `VRMFilamentRenderer` |
+| VRMA Animation | `vrm-animation` | ⏳ | ⏳ |
+| Coordinate System | Three.js (native SSCS) | Godot (native SSCS) | Filament (native SSCS) |
 
 ## Coordinate System
 
 All demos use **SisterRM Standard Coordinate System (SSCS)**:
-- Right-handed, Y-up, -Z forward
+- Right-handed, Y-up, meters
 - VRM 1.0 compliant
 
-Libraries can convert directly between platform-native coordinates without the server. See `../vrm-protocol/spec/coordinate-systems.md`.
+All target platforms (Godot, Three.js, Filament) are natively Y-up right-handed,
+so SSCS is an identity mapping. The `CoordinateSystem` enum exists for future
+Unity support.

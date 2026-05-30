@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 import type { AvatarDeltaState } from '../utils/network-client';
-import { packToSSCS } from '../utils/coordinates';
 
 interface VRMNetworkedComponent extends AFrameComponent {
   _sendInterval: ReturnType<typeof setInterval> | null;
-  _lastSent: number;
-  _cachedExpressions: Record<string, number>;
+  _vrm: VRM | null;
   sendDelta(): void;
 }
 
@@ -21,8 +19,7 @@ AFRAME.registerComponent('vrm-networked', {
 
   init(this: VRMNetworkedComponent): void {
     this._sendInterval = null;
-    this._lastSent = 0;
-    this._cachedExpressions = {};
+    this._vrm = null;
 
     const isLocal = !!(this.data.server && this.data.room && this.data.userId);
 
@@ -34,12 +31,15 @@ AFRAME.registerComponent('vrm-networked', {
 
       if (system) {
         system.connect(this.data.server);
-
-        // Wait for model load to get avatar URL
         const vrmModel = this.el.components['vrm-model'] as { data?: { src?: string } } | undefined;
         const avatarUrl = vrmModel?.data?.src || '';
         system.joinRoom(this.data.room, this.data.userId, avatarUrl);
       }
+
+      this.el.addEventListener('model-loaded', (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        this._vrm = detail.vrm;
+      });
 
       // Send delta at 20Hz
       this._sendInterval = setInterval(() => {
@@ -54,42 +54,43 @@ AFRAME.registerComponent('vrm-networked', {
     } | undefined;
 
     if (!system?.client) return;
+    if (!this._vrm) return;
 
     const obj = this.el.object3D;
     obj.updateMatrixWorld();
 
     const pos = new THREE.Vector3();
-    const rot = new THREE.Quaternion();
+    const quat = new THREE.Quaternion();
     const scale = new THREE.Vector3();
-    obj.matrixWorld.decompose(pos, rot, scale);
+    obj.matrixWorld.decompose(pos, quat, scale);
 
-    // Gather expressions
-    const expressionsComp = this.el.components['vrm-expressions'] as { data?: Record<string, number> } | undefined;
+    // Gather expressions from VRM
     const expressions: Record<string, number> = {};
-    if (expressionsComp?.data) {
-      for (const [key, value] of Object.entries(expressionsComp.data)) {
-        if (typeof value === 'number' && value !== 0) {
-          expressions[key] = value;
+    const em = this._vrm.expressionManager;
+    if (em) {
+      for (const [name, expr] of Object.entries(em.expressionMap)) {
+        if (expr.weight > 0.001) {
+          expressions[name] = expr.weight;
         }
       }
     }
 
     // Gather lookAt target
-    const lookAtComp = this.el.components['vrm-look-at'] as { _targetEntity?: AFrameEntity | null; data?: { target?: AFrameEntity | null } } | undefined;
+    const lookAt = this._vrm.lookAt;
     let lookAtPos = new THREE.Vector3();
-    if (lookAtComp?._targetEntity) {
-      lookAtComp._targetEntity.object3D.getWorldPosition(lookAtPos);
-    } else {
-      // Default forward direction
-      const forward = new THREE.Vector3(0, 0, -1);
-      forward.applyQuaternion(rot);
+    if (lookAt) {
+      // Default: look forward relative to model
+      const forward = new THREE.Vector3(0, 0, 1);
+      forward.applyQuaternion(quat);
       lookAtPos.copy(pos).add(forward);
     }
 
-    const sscsTransform = packToSSCS(pos, rot, scale);
-
     const state: AvatarDeltaState = {
-      transform: sscsTransform,
+      transform: {
+        pos: [pos.x, pos.y, pos.z],
+        rot: [quat.x, quat.y, quat.z, quat.w],
+        scale: [scale.x, scale.y, scale.z],
+      },
       expressions,
       look_at: [lookAtPos.x, lookAtPos.y, lookAtPos.z],
     };

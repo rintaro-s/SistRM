@@ -1,17 +1,22 @@
+import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import type { VRM } from '@pixiv/three-vrm';
 
 interface VRMModelComponent extends AFrameComponent {
-  vrm?: VRM;
-  loader?: GLTFLoader;
+  vrm: VRM | null;
+  loader: GLTFLoader | null;
+  loadModel(src: string): void;
+  removeModel(): void;
 }
 
 AFRAME.registerComponent('vrm-model', {
   schema: {
-    src: { type: 'string' },
+    src: { type: 'asset' },
   },
 
   init(this: VRMModelComponent): void {
+    this.vrm = null;
     this.loader = new GLTFLoader();
     this.loader.register((parser) => new VRMLoaderPlugin(parser));
 
@@ -20,56 +25,53 @@ AFRAME.registerComponent('vrm-model', {
     }
   },
 
-  update(this: VRMModelComponent, oldData: any): void {
-    if (oldData.src !== this.data.src && this.data.src) {
-      this.removeModel();
+  update(this: VRMModelComponent): void {
+    if (this.data.src) {
       this.loadModel(this.data.src);
     }
   },
 
+  removeModel(this: VRMModelComponent): void {
+    if (this.vrm) {
+      VRMUtils.deepDispose(this.vrm.scene);
+      this.el.object3D.remove(this.vrm.scene);
+      this.vrm = null;
+    }
+  },
+
   loadModel(this: VRMModelComponent, src: string): void {
+    this.removeModel();
+
     this.loader!.load(
       src,
       (gltf) => {
         const vrm = gltf.userData.vrm as VRM | undefined;
         if (!vrm) {
-          console.error('vrm-model: Loaded glTF does not contain a VRM');
+          console.error('[vrm-model] No VRM data found in', src);
           return;
         }
 
-        this.vrm = vrm;
+        // VRM 0.0 models need Y=180 rotation correction
         VRMUtils.rotateVRM0(vrm);
-        this.el.setObject3D('vrm', vrm.scene);
 
-        const system = this.el.sceneEl.systems['vrm'] as { registerVRM(v: VRM): void } | undefined;
-        if (system && system.registerVRM) {
-          system.registerVRM(vrm);
+        this.vrm = vrm;
+        this.el.object3D.add(vrm.scene);
+
+        // Emit event for other components
+        this.el.emit('model-loaded', { vrm });
+
+        // Resize to reasonable scale if needed
+        const box = new THREE.Box3().setFromObject(vrm.scene);
+        const size = box.getSize(new THREE.Vector3());
+        if (size.y > 3.0 || size.y < 0.3) {
+          const scale = 1.6 / size.y;
+          vrm.scene.scale.setScalar(scale);
         }
-
-        this.el.emit('model-loaded', { format: 'vrm', model: vrm }, false);
       },
       undefined,
-      (error) => {
-        console.error('vrm-model: Error loading VRM', error);
-        this.el.emit('model-error', { format: 'vrm', src }, false);
-      },
-    );
-  },
-
-  removeModel(this: VRMModelComponent): void {
-    if (this.vrm) {
-      const system = this.el.sceneEl.systems['vrm'] as { unregisterVRM(v: VRM): void } | undefined;
-      if (system && system.unregisterVRM) {
-        system.unregisterVRM(this.vrm);
+      (err) => {
+        console.error('[vrm-model] Failed to load', src, err);
       }
-
-      this.el.removeObject3D('vrm');
-      VRMUtils.deepDispose(this.vrm.scene);
-      this.vrm = undefined;
-    }
-  },
-
-  remove(this: VRMModelComponent): void {
-    this.removeModel();
+    );
   },
 });

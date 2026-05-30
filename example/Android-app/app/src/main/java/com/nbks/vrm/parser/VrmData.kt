@@ -26,7 +26,7 @@ data class VrmData(
 
     val humanoidBoneNames: List<String>
         get() = when (version) {
-            VrmVersion.VRM_1_0 -> vrm1?.humanoid?.humanBones?.map { it.bone } ?: emptyList()
+            VrmVersion.VRM_1_0 -> vrm1?.humanoid?.humanBones?.keys?.toList() ?: emptyList()
             VrmVersion.VRM_0_0 -> vrm0?.humanoid?.humanBones?.map { it.bone } ?: emptyList()
             VrmVersion.UNKNOWN -> emptyList()
         }

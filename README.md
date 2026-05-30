@@ -1,160 +1,148 @@
 # SisterRM — Multi-Platform VRM Metaverse Foundation
 
-A cross-platform metaverse foundation built on VRM. Provides runtime libraries for Android (Kotlin), Godot (GDScript), and A-Frame (Web), plus a Go server for real-time avatar state synchronization.
+A cross-platform metaverse foundation built on VRM. Provides runtime libraries for
+Godot (GDScript), A-Frame/Three.js (TypeScript), and Android (Kotlin + Filament),
+plus a Go server for real-time avatar state synchronization.
 
 ## Project Structure
 
 ```
 SisterRM/
-├── UniVRM/              # Unity reference implementation (existing)
-├── three-vrm/           # Web/Three.js reference implementation (existing)
-├── vrm-protocol/        # Shared WebSocket protocol spec (JSON Schema)
-├── vrm-server/          # Go real-time synchronization hub
-├── android-vrm/         # Kotlin VRM runtime library for Android
-├── aframe-vrm/          # A-Frame components for WebXR VRM avatars
-└── godot-vrm/           # Updated Godot VRM addon with runtime API
+├── vrm-server/          # Go WebSocket hub for real-time sync
+├── vrm-protocol/        # Shared protocol spec (JSON Schema)
+├── aframe-vrm/          # A-Frame components wrapping @pixiv/three-vrm
+├── godot-vrm/           # Godot VRM addon + SisterRM runtime wrapper
+├── android-vrm/         # Kotlin parser + network client (reference)
+├── example/
+│   ├── Android-app/     # Working Android demo with Filament renderer
+│   ├── web/             # A-Frame demo HTML
+│   └── assets/          # avatar.vrm (VRM 1.0)
+├── UniVRM/              # Unity reference implementation (upstream)
+└── three-vrm/           # Web reference implementation (upstream)
 ```
+
+## Architecture Philosophy: Library-First
+
+**Do not reimplement VRM runtime logic.** Every platform already has a mature,
+battle-tested VRM library. SisterRM wraps and extends these libraries with
+network synchronization.
+
+| Platform | Rendering Library | VRM Library | SisterRM Layer |
+|----------|-------------------|-------------|----------------|
+| **Godot** | Godot 4 Renderer | godot-vrm addon | `SisterRMRuntime` wrapper + `SisterRMNetworkClient` |
+| **A-Frame** | Three.js WebGL | @pixiv/three-vrm | `vrm-model` + `vrm-networked` components |
+| **Android** | Google Filament | gltfio + custom VRM mapping | `VRMFilamentRenderer` + `VRMNetworkClient` |
 
 ## Platform Libraries
 
-### android-vrm (Kotlin)
-Renderer-agnostic VRM runtime for Android. Pure Kotlin core with optional Filament integration.
+### godot-vrm (GDScript)
 
-- **VRM 0.0/1.0** loading and parsing
-- **Humanoid** bone mapping and posing
-- **Expressions** (morph targets + material bindings)
-- **Spring Bone** physics
-- **Node Constraints** (roll, aim, rotation)
-- **LookAt** (bone and expression modes)
-- **Network client** for vrm-server
+Wraps the existing [godot-vrm addon](https://github.com/V-Sekai/godot-vrm) with a thin `SisterRMRuntime` node.
+
+- **Expression control**: Reads/writes blend shapes and material values via the addon's `AnimationPlayer`
+- **Humanoid bones**: Direct `Skeleton3D` access via `BoneMap`
+- **Look-at**: Bone and expression modes
+- **Spring bone**: Gravity and multiplier control
+- **First-person**: Head mesh visibility toggle
+- **Network**: `SisterRMNetworkClient` WebSocket node
+
+```gdscript
+var runtime = SisterRMRuntime.new()
+vrm.add_child(runtime)
+runtime.init()
+runtime.set_expression("happy", 0.8)
+runtime.set_first_person_enabled(true)
+```
 
 ### aframe-vrm (TypeScript)
-Drop-in A-Frame components wrapping `@pixiv/three-vrm`.
 
-- `vrm-model` — Load VRM
-- `vrm-expressions` — Facial expression control
-- `vrm-look-at` — Eye/head tracking
-- `vrm-spring-bone` — Physics configuration
-- `vrm-networked` — Multiplayer sync
+A-Frame components built on `@pixiv/three-vrm`.
 
-### godot-vrm (GDScript)
-Updated Godot 4.x addon with new runtime API classes.
+- `vrm-model` — Load VRM via `GLTFLoader` + `VRMLoaderPlugin`
+- `vrm-networked` — Send/receive `avatar_delta` at 20Hz
+- `vrm-first-person` — Toggle first-person mesh visibility
+- `vrm-animation` — Load and play `.vrma` animation files
+- `vrm-system` — Tick all VRM instances each frame
+- `vrm-network-system` — Spawn remote avatars, interpolate state
 
-- Runtime **expression** control (no AnimationPlayer required)
-- **Humanoid** bone access via Skeleton3D
-- **LookAt** target tracking
-- **Network client** node for vrm-server sync
-- **VRMA** animation loading and retargeting
-
-### vrm-server (Go)
-WebSocket hub for synchronizing avatar state across all platforms.
-
-- Room-based instances
-- 20Hz transform + 10Hz expression broadcasts
-- REST API for room management
-- Static VRM asset serving
-- BoltDB + SQLite persistence
-
-## SisterRM Standard Coordinate System (SSCS)
-
-All libraries use a **single canonical coordinate system** to ensure seamless cross-platform interoperability — even when communicating peer-to-peer without the server.
-
-| Property | Value |
-|----------|-------|
-| Handedness | Right-handed |
-| Up | +Y |
-| Forward | -Z |
-| Units | Meters |
-
-**Platform conversions included in every library:**
-
-| Platform | Native ↔ SSCS |
-|----------|---------------|
-| Three.js / A-Frame | **Identity** |
-| Godot 4 | **Identity** |
-| Android / Filament | **Identity** |
-| Unity / UniVRM | `convertQuaternionLhToRh()`, `(-x, y, z)` position flip |
-| VRM 0.0 raw | 180° Y rotation correction |
-
-Each library provides `toStandard()` / `fromStandard()` / `convert(A, B)` utilities. See `vrm-protocol/spec/coordinate-systems.md`.
-
-## Unified API Pattern
-
-All platforms share a common conceptual API derived from UniVRM and three-vrm:
-
-```
-VRMInstance
-├── load(path) -> VRMInstance
-├── update(delta)
-├── humanoid
-│   ├── getBone(name)
-│   └── setBoneRotation(name, rot)
-├── expressions
-│   ├── setValue(name, value)
-│   └── getValue(name)
-├── lookAt
-│   ├── target = ...
-│   └── update(delta)
-├── springBone
-│   └── update(delta)
-└── network (optional)
-    ├── connect(url)
-    └── joinRoom(roomId, userId)
-```
-
-## Quick Start
-
-### Server
-```bash
-cd vrm-server
-go run ./cmd/server
-# → http://localhost:8080
-```
-
-### A-Frame
 ```html
-<a-entity vrm-model="src: ./avatar.vrm"
-          vrm-networked="server: ws://localhost:8080/ws; room: lobby">
+<a-entity vrm-model="src: avatar.vrm"
+          vrm-networked="server: ws://localhost:8080/ws; room: demo; userId: player-1"
+          vrm-animation="src: wave.vrma">
 </a-entity>
 ```
 
-### Godot
-```gdscript
-$VRMModel.get_vrm_expression_manager().set_expression("happy", 0.8)
-$VRMModel.get_vrm_network_client().setup("ws://localhost:8080/ws", "lobby", "player-1", $VRMModel)
-```
+### Android (Kotlin + Filament)
 
-### Android
+`example/Android-app/` is a complete Compose-based demo with Google Filament rendering.
+
+- **Renderer**: `VRMFilamentRenderer` — loads GLB, drives morph targets, manages camera
+- **Expressions**: Maps parsed VRM binds to `RenderableManager.setMorphWeights()`
+- **First-person**: Hides head mesh entities based on VRM first-person annotations
+- **Network**: `VRMNetworkClient` with coordinate-aware delta sending
+
 ```kotlin
-val client = VRMNetworkClient()
-client.connect("ws://localhost:8080/ws")
-client.joinRoom("lobby", "android-1", "avatar.vrm")
+val renderer = VRMFilamentRenderer(surfaceView, assetManager)
+renderer.loadVrm("avatar.vrm", vrmData)
+renderer.setExpression("happy", 0.8f)
+renderer.setFirstPersonEnabled(true)
 ```
 
-## Network Protocol
+## Protocol
 
-All platforms communicate via JSON WebSocket messages:
+All platforms communicate via WebSocket to `vrm-server` using a shared JSON protocol.
 
 | Message | Direction | Description |
 |---------|-----------|-------------|
-| `join_room` | C→S | Join a room with user ID and avatar URL |
-| `avatar_delta` | C→S, S→C | Avatar state update (transform, expressions, bones) |
-| `full_state` | S→C | Complete room snapshot |
-| `room_event` | C→S, S→C | Chat, RPC, presence events |
+| `join_room` | Client → Server | Enter a room with user_id and avatar_url |
+| `avatar_delta` | Bidirectional | Transform (pos, rot, scale), expressions, look_at |
+| `full_state` | Server → Client | Snapshot of all entities in room |
+| `user_joined` / `user_left` | Server → Client | Presence events |
 
-See `vrm-protocol/spec/messages.schema.json` for the full schema.
+**Coordinate system**: SSCS (SisterRM Spatial Coordinate System) — Y-up, right-handed, meters.
+All platforms are natively Y-up right-handed, so SSCS is an identity mapping for now.
 
-## Development
+## Building
 
-Each subproject has its own build system:
+### Go Server
+```bash
+cd vrm-server
+go build ./...
+```
 
-| Project | Build | Run |
-|---------|-------|-----|
-| vrm-server | `go build ./cmd/server` | `./server` |
-| aframe-vrm | `npm install && npm run build` | `npm run serve` |
-| android-vrm | `./gradlew build` | `./gradlew :vrm-sample:installDebug` |
-| godot-vrm | Import `godot-vrm/` in Godot 4.2+ | F5 |
+### A-Frame
+```bash
+cd aframe-vrm
+npm install
+npm run build
+# dist/aframe-vrm.js
+```
+
+### Android
+```bash
+cd example/Android-app
+./gradlew assembleDebug
+# app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Godot
+Import `godot-vrm/` as a Godot 4.x addon. `SisterRMRuntime` and `SisterRMNetworkClient`
+are in `addons/vrm/runtime/`.
+
+## Status
+
+| Feature | Godot | A-Frame | Android |
+|---------|-------|---------|---------|
+| VRM Loading | ✅ (addon importer) | ✅ (three-vrm) | ✅ (Filament gltfio) |
+| Expressions | ✅ | ✅ | ✅ (morph targets) |
+| Look-At | ✅ | ✅ | ⏳ (camera only) |
+| Humanoid Bones | ✅ | ✅ | ⏳ (transform API) |
+| Spring Bone | ✅ (addon) | ✅ (three-vrm) | ⏳ |
+| First-Person | ✅ | ✅ | ✅ |
+| VRMA Animation | ⏳ | ✅ | ⏳ |
+| Network Sync | ✅ | ✅ | ✅ |
+| MToon Materials | ✅ (addon) | ✅ (three-vrm) | ⏳ (PBR fallback) |
 
 ## License
 
-See individual subprojects for their licenses. The new code follows the same licenses as their respective reference implementations where applicable.
+MIT

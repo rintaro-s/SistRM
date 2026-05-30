@@ -6,9 +6,8 @@ extends Node3D
 @onready var label_network: Label = $UI/Panel/VBoxContainer/LabelNetwork
 @onready var btn_connect: Button = $UI/Panel/VBoxContainer/BtnConnect
 
-var _vrm_top_level: Node3D = null
-var _vrm_instance: VRMInstance = null
-var _network_client: VRMNetworkClient = null
+var _runtime: SisterRMRuntime = null
+var _network_client: SisterRMNetworkClient = null
 
 func _ready():
 	# Create ground plane
@@ -52,19 +51,18 @@ func _load_vrm(path: String):
 	add_child(scene)
 	scene.position = Vector3(0, 0, -2)
 
-	# Attach runtime API
+	# Attach SisterRMRuntime
 	if scene is VRMTopLevel:
-		_vrm_top_level = scene
-		# Set script to VRMInstance to gain runtime methods
-		scene.set_script(preload("res://addons/vrm/runtime/vrm_instance.gd"))
-		_vrm_instance = scene as VRMInstance
-		_vrm_instance.init_runtime()
-		print("VRM loaded with runtime: " + path)
+		_runtime = SisterRMRuntime.new()
+		scene.add_child(_runtime)
+		_runtime.init()
+		print("VRM loaded with SisterRMRuntime: " + path)
+		print("Expressions: " + str(_runtime.get_expression_names()))
 	else:
 		push_warning("Loaded scene is not a VRMTopLevel")
 
 func _process(_delta):
-	if _vrm_instance == null:
+	if _runtime == null:
 		return
 
 	# Animate look-at target in a circle
@@ -75,43 +73,33 @@ func _process(_delta):
 		1.6,
 		-2.0 + cos(time * 0.5) * 3.0
 	)
-
-	var look = _vrm_instance.get_look_at()
-	if look != null:
-		look.target_position = look_target
+	_runtime.set_look_at_target(look_target)
 
 	# Wave left arm
-	var humanoid = _vrm_instance.get_humanoid()
-	if humanoid != null:
-		var wave = sin(Time.get_ticks_msec() * 0.003) * 0.5
-		humanoid.set_bone_rotation("leftUpperArm", Quaternion.from_euler(Vector3(0, 0, wave + 0.5)))
+	var wave = sin(Time.get_ticks_msec() * 0.003) * 0.5
+	_runtime.set_bone_rotation("leftUpperArm", Quaternion.from_euler(Vector3(0, 0, wave + 0.5)))
 
 func _on_expression_changed(value: float, name: String):
-	if _vrm_instance == null:
+	if _runtime == null:
 		return
-	var expr = _vrm_instance.get_expression_manager()
-	if expr != null:
-		expr.set_expression(name, value)
+	_runtime.set_expression(name, value)
 
 func _on_connect_pressed():
-	if _vrm_instance == null:
+	if _runtime == null:
 		return
 
 	if _network_client != null and is_instance_valid(_network_client):
-		# Disconnect
 		_network_client.disconnect_from_server()
 		_network_client.queue_free()
 		_network_client = null
 		label_network.text = "Network: disconnected"
 		btn_connect.text = "Connect to Server"
 	else:
-		# Connect
-		_network_client = VRMNetworkClient.new()
+		_network_client = SisterRMNetworkClient.new()
 		_network_client.server_url = "ws://localhost:8080/ws"
 		_network_client.room_id = "demo"
 		_network_client.user_id = "godot-player-" + str(randi())
-		_network_client.local_avatar = _vrm_top_level.get_path()
-		_vrm_top_level.add_child(_network_client)
+		_runtime.add_child(_network_client)
 		_network_client.connect_to_server()
 		label_network.text = "Network: connecting..."
 		btn_connect.text = "Disconnect"

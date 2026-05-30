@@ -1,59 +1,51 @@
 # aframe-vrm
 
-A-Frame components for VRM avatars with metaverse synchronization.
+A-Frame components for VRM avatars with metaverse sync, built on `@pixiv/three-vrm`.
 
 ## Components
 
 | Component | Purpose |
 |-----------|---------|
-| `vrm-model` | Load and display a VRM model |
-| `vrm-expressions` | Control facial expressions (happy, surprised, blink, etc.) |
-| `vrm-look-at` | Eye/head tracking toward a target entity or camera |
-| `vrm-spring-bone` | Configure spring bone physics parameters |
-| `vrm-networked` | Connect to vrm-server and sync avatar state |
+| `vrm-model` | Load VRM via `GLTFLoader` + `VRMLoaderPlugin` |
+| `vrm-networked` | Send/receive `avatar_delta` at 20Hz |
+| `vrm-first-person` | Toggle first-person mesh visibility |
+| `vrm-animation` | Load and play `.vrma` animation files |
 
 ## Systems
 
 | System | Purpose |
 |--------|---------|
-| `vrm` | Manages all VRM instances, calls `update(delta)` each frame |
-| `vrm-network` | WebSocket hub, spawns/interpolates remote avatars |
-
-## Usage
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
-  <script src="./dist/aframe-vrm.js"></script>
-</head>
-<body>
-  <a-scene>
-    <a-entity
-      position="0 0 -2"
-      vrm-model="src: ./avatar.vrm"
-      vrm-expressions="happy: 0.5; blink: 1.0"
-      vrm-look-at="target: #camera"
-      vrm-networked="server: ws://localhost:8080/ws; room: lobby; userId: player-1"
-    ></a-entity>
-    <a-camera id="camera" look-controls wasd-controls></a-camera>
-  </a-scene>
-</body>
-</html>
-```
+| `vrm-system` | Tick all VRM instances each frame |
+| `vrm-network-system` | Spawn remote avatars, interpolate state |
 
 ## Build
 
 ```bash
 npm install
 npm run build
+# dist/aframe-vrm.js
+```
+
+## Usage
+
+```html
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="dist/aframe-vrm.js"></script>
+
+<a-scene>
+  <a-entity id="avatar"
+    vrm-model="src: avatar.vrm"
+    vrm-networked="server: ws://localhost:8080/ws; room: demo; userId: player-1"
+    vrm-animation="src: wave.vrma"
+    position="0 0 -2">
+  </a-entity>
+</a-scene>
 ```
 
 ## Network Protocol
 
-Communicates with `vrm-server` via WebSocket using JSON messages:
-- `join_room` / `leave_room`
-- `avatar_delta` (transform, expressions, look_at)
-- `full_state` (room snapshot)
-- `room_event` (chat, RPC)
+Connects to `vrm-server` and sends/receives:
+- `avatar_delta`: transform (pos, rot, scale), expressions, look_at
+- `full_state`: room snapshot with all remote avatars
+- `user_joined` / `user_left`: presence events

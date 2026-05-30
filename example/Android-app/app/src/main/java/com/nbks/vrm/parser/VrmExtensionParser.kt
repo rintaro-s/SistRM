@@ -30,10 +30,10 @@ data class Vrm1Meta(
 )
 
 @Serializable
-data class Vrm1HumanoidBone(val bone: String, val node: Int, val useFirstPersonBone: Boolean = true)
+data class Vrm1HumanoidBone(val node: Int, val useFirstPersonBone: Boolean = true)
 
 @Serializable
-data class Vrm1Humanoid(val humanBones: List<Vrm1HumanoidBone> = emptyList())
+data class Vrm1Humanoid(val humanBones: Map<String, Vrm1HumanoidBone> = emptyMap())
 
 @Serializable
 data class Vrm1Expression(

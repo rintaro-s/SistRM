@@ -1,8 +1,8 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
-    typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
-    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.AFrameVRM = {}, global.THREE));
-})(this, (function (exports, THREE42) { 'use strict';
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(require('three')) :
+    typeof define === 'function' && define.amd ? define(['three'], factory) :
+    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.THREE));
+})(this, (function (THREE14) { 'use strict';
 
     function _interopNamespaceDefault(e) {
         var n = Object.create(null);
@@ -21,305 +21,89 @@
         return Object.freeze(n);
     }
 
-    var THREE42__namespace = /*#__PURE__*/_interopNamespaceDefault(THREE42);
+    var THREE14__namespace = /*#__PURE__*/_interopNamespaceDefault(THREE14);
 
-    AFRAME.registerSystem('vrm', {
+    AFRAME.registerSystem('vrm-system', {
+        schema: {},
         init() {
-            this.vrms = new Set();
+            this.clock = new THREE14__namespace.Clock();
         },
-        registerVRM(vrm) {
-            this.vrms.add(vrm);
-        },
-        unregisterVRM(vrm) {
-            this.vrms.delete(vrm);
-        },
-        tick(_time, timeDelta) {
-            const delta = timeDelta / 1000;
-            for (const vrm of this.vrms) {
-                vrm.update(delta);
+        tick(_time, _timeDelta) {
+            const delta = this.clock.getDelta();
+            const scene = this.sceneEl;
+            // Update all VRM models
+            const vrms = scene.querySelectorAll('[vrm-model]');
+            for (let i = 0; i < vrms.length; i++) {
+                const el = vrms[i];
+                const vrm = el.components?.['vrm-model']?.vrm;
+                if (vrm) {
+                    vrm.update(delta);
+                }
             }
         },
     });
 
     class NetworkClient {
         constructor() {
-            this.ws = null;
-            this.url = '';
-            this.reconnectInterval = 3000;
-            this.reconnectTimer = null;
-            this.messageCallback = null;
-            this._isConnecting = false;
+            this._ws = null;
+            this._isConnected = false;
+            this._onMessage = null;
         }
         get isConnected() {
-            return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
-        }
-        get isConnecting() {
-            return this._isConnecting;
+            return this._isConnected;
         }
         connect(url) {
-            this.url = url;
-            this._connect();
+            this._ws = new WebSocket(url);
+            this._ws.onopen = () => {
+                this._isConnected = true;
+            };
+            this._ws.onclose = () => {
+                this._isConnected = false;
+                this._ws = null;
+            };
+            this._ws.onerror = (err) => {
+                console.error('[vrm-network] WebSocket error:', err);
+            };
+            this._ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (this._onMessage) {
+                        this._onMessage(msg);
+                    }
+                }
+                catch (e) {
+                    console.error('[vrm-network] Failed to parse message:', e);
+                }
+            };
         }
-        _connect() {
-            if (this.isConnected || this._isConnecting)
-                return;
-            this._isConnecting = true;
-            try {
-                this.ws = new WebSocket(this.url);
-                this.ws.onopen = () => {
-                    this._isConnecting = false;
-                    if (this.reconnectTimer) {
-                        clearTimeout(this.reconnectTimer);
-                        this.reconnectTimer = null;
-                    }
-                };
-                this.ws.onmessage = (event) => {
-                    try {
-                        const msg = JSON.parse(event.data);
-                        if (this.messageCallback) {
-                            this.messageCallback(msg);
-                        }
-                    }
-                    catch (err) {
-                        console.warn('[vrm-network] Failed to parse message:', event.data, err);
-                    }
-                };
-                this.ws.onclose = () => {
-                    this._isConnecting = false;
-                    this._scheduleReconnect();
-                };
-                this.ws.onerror = (err) => {
-                    this._isConnecting = false;
-                    console.error('[vrm-network] WebSocket error:', err);
-                };
-            }
-            catch (err) {
-                this._isConnecting = false;
-                console.error('[vrm-network] Failed to connect:', err);
-                this._scheduleReconnect();
-            }
-        }
-        _scheduleReconnect() {
-            if (this.reconnectTimer)
-                return;
-            this.reconnectTimer = setTimeout(() => {
-                this.reconnectTimer = null;
-                this._connect();
-            }, this.reconnectInterval);
+        onMessage(handler) {
+            this._onMessage = handler;
         }
         joinRoom(roomId, userId, avatarUrl) {
-            this.send({
+            if (!this._ws || this._ws.readyState !== WebSocket.OPEN)
+                return;
+            this._ws.send(JSON.stringify({
                 type: 'join_room',
                 room_id: roomId,
                 user_id: userId,
                 avatar_url: avatarUrl,
-            });
+            }));
         }
         sendDelta(state) {
-            this.send({
-                type: 'avatar_delta',
-                timestamp: Date.now(),
-                ...state,
-            });
-        }
-        send(msg) {
-            if (!this.isConnected) {
-                console.warn('[vrm-network] Cannot send, not connected');
+            if (!this._ws || this._ws.readyState !== WebSocket.OPEN)
                 return;
-            }
-            this.ws.send(JSON.stringify(msg));
-        }
-        onMessage(callback) {
-            this.messageCallback = callback;
+            this._ws.send(JSON.stringify({
+                type: 'avatar_delta',
+                ...state,
+            }));
         }
         disconnect() {
-            if (this.reconnectTimer) {
-                clearTimeout(this.reconnectTimer);
-                this.reconnectTimer = null;
+            if (this._ws) {
+                this._ws.close();
+                this._ws = null;
             }
-            if (this.ws) {
-                this.ws.close();
-                this.ws = null;
-            }
+            this._isConnected = false;
         }
-    }
-
-    /**
-     * SisterRM Standard Coordinate System (SSCS) converter.
-     *
-     * SSCS: Right-handed, Y-up, -Z forward.
-     * Three.js / A-Frame are natively SSCS (identity mapping).
-     * This module provides conversion to/from Unity (LH) and VRM 0.0 raw.
-     */
-    exports.CoordinateSystem = void 0;
-    (function (CoordinateSystem) {
-        CoordinateSystem["SSCS"] = "SSCS";
-        CoordinateSystem["UNITY"] = "UNITY";
-        CoordinateSystem["VRM0_RAW"] = "VRM0_RAW";
-    })(exports.CoordinateSystem || (exports.CoordinateSystem = {}));
-    // ==================== Position / Vector ====================
-    function convertPosition(pos, from, to) {
-        if (from === to)
-            return pos.clone();
-        const standard = toStandardPosition(pos, from);
-        return fromStandardPosition(standard, to);
-    }
-    function convertDirection(dir, from, to) {
-        if (from === to)
-            return dir.clone();
-        const standard = toStandardDirection(dir, from);
-        return fromStandardDirection(standard, to);
-    }
-    // ==================== Rotation (Quaternion) ====================
-    function convertRotation(rot, from, to) {
-        if (from === to)
-            return rot.clone();
-        const standard = toStandardRotation(rot, from);
-        return fromStandardRotation(standard, to);
-    }
-    // ==================== Scale ====================
-    function convertScale(scale, from, to) {
-        return scale.clone();
-    }
-    // ==================== Full Transform ====================
-    function convertTransform(position, rotation, scale, from, to) {
-        if (from === to) {
-            return {
-                position: position.clone(),
-                rotation: rotation.clone(),
-                scale: scale.clone(),
-            };
-        }
-        const stdPos = toStandardPosition(position, from);
-        const stdRot = toStandardRotation(rotation, from);
-        return {
-            position: fromStandardPosition(stdPos, to),
-            rotation: fromStandardRotation(stdRot, to),
-            scale: scale.clone(),
-        };
-    }
-    // ==================== To Standard (SSCS) ====================
-    function toStandardPosition(pos, from) {
-        switch (from) {
-            case exports.CoordinateSystem.SSCS:
-                return pos.clone();
-            case exports.CoordinateSystem.UNITY:
-                return new THREE42.Vector3(-pos.x, pos.y, pos.z);
-            case exports.CoordinateSystem.VRM0_RAW:
-                return new THREE42.Vector3(-pos.x, pos.y, -pos.z);
-        }
-    }
-    function toStandardDirection(dir, from) {
-        switch (from) {
-            case exports.CoordinateSystem.SSCS:
-                return dir.clone();
-            case exports.CoordinateSystem.UNITY:
-                return new THREE42.Vector3(-dir.x, dir.y, dir.z);
-            case exports.CoordinateSystem.VRM0_RAW:
-                return new THREE42.Vector3(-dir.x, dir.y, -dir.z);
-        }
-    }
-    function toStandardRotation(rot, from) {
-        switch (from) {
-            case exports.CoordinateSystem.SSCS:
-                return rot.clone();
-            case exports.CoordinateSystem.UNITY:
-                return convertQuaternionLhToRh(rot);
-            case exports.CoordinateSystem.VRM0_RAW: {
-                const correction = new THREE42.Quaternion().setFromAxisAngle(new THREE42.Vector3(0, 1, 0), Math.PI);
-                return correction.multiply(rot);
-            }
-        }
-    }
-    // ==================== From Standard (SSCS) ====================
-    function fromStandardPosition(pos, to) {
-        switch (to) {
-            case exports.CoordinateSystem.SSCS:
-                return pos.clone();
-            case exports.CoordinateSystem.UNITY:
-                return new THREE42.Vector3(-pos.x, pos.y, pos.z);
-            case exports.CoordinateSystem.VRM0_RAW:
-                return new THREE42.Vector3(-pos.x, pos.y, -pos.z);
-        }
-    }
-    function fromStandardDirection(dir, to) {
-        switch (to) {
-            case exports.CoordinateSystem.SSCS:
-                return dir.clone();
-            case exports.CoordinateSystem.UNITY:
-                return new THREE42.Vector3(-dir.x, dir.y, dir.z);
-            case exports.CoordinateSystem.VRM0_RAW:
-                return new THREE42.Vector3(-dir.x, dir.y, -dir.z);
-        }
-    }
-    function fromStandardRotation(rot, to) {
-        switch (to) {
-            case exports.CoordinateSystem.SSCS:
-                return rot.clone();
-            case exports.CoordinateSystem.UNITY:
-                return convertQuaternionLhToRh(rot);
-            case exports.CoordinateSystem.VRM0_RAW: {
-                const correction = new THREE42.Quaternion().setFromAxisAngle(new THREE42.Vector3(0, 1, 0), Math.PI);
-                return correction.multiply(rot);
-            }
-        }
-    }
-    // ==================== Unity LH ↔ RH Helpers ====================
-    /**
-     * Convert quaternion between Left-Handed and Right-Handed Y-up.
-     * Self-inverse operation.
-     */
-    function convertQuaternionLhToRh(q) {
-        return new THREE42.Quaternion(-q.x, -q.y, -q.z, q.w);
-    }
-    // ==================== VRM 0.0 Correction ====================
-    /**
-     * Correct VRM 0.0 root transform to SSCS orientation.
-     * Applies 180° Y rotation.
-     */
-    function correctVrm0Orientation(position, rotation) {
-        const y180 = new THREE42.Quaternion().setFromAxisAngle(new THREE42.Vector3(0, 1, 0), Math.PI);
-        const correctedPos = position.clone().applyQuaternion(y180);
-        const correctedRot = y180.clone().multiply(rotation);
-        return { position: correctedPos, rotation: correctedRot, scale: new THREE42.Vector3(1, 1, 1) };
-    }
-    // ==================== Network Protocol Helpers ====================
-    /**
-     * Pack a Three.js transform into SSCS array format for network messages.
-     * A-Frame/Three.js is natively SSCS, so this is identity with validation.
-     */
-    function packToSSCS(position, rotation, scale) {
-        const sscs = convertTransform(position, rotation, scale, exports.CoordinateSystem.SSCS, exports.CoordinateSystem.SSCS);
-        return {
-            pos: [sscs.position.x, sscs.position.y, sscs.position.z],
-            rot: [sscs.rotation.x, sscs.rotation.y, sscs.rotation.z, sscs.rotation.w],
-            scale: [sscs.scale.x, sscs.scale.y, sscs.scale.z],
-        };
-    }
-    /**
-     * Unpack SSCS array format from network messages into Three.js objects.
-     */
-    function unpackFromSSCS(pos, rot, scale) {
-        const sscs = convertTransform(new THREE42.Vector3(pos[0], pos[1], pos[2]), new THREE42.Quaternion(rot[0], rot[1], rot[2], rot[3]), new THREE42.Vector3(scale[0], scale[1], scale[2]), exports.CoordinateSystem.SSCS, exports.CoordinateSystem.SSCS);
-        return sscs;
-    }
-    // ==================== Validation ====================
-    function isValidStandardPosition(pos) {
-        const max = 1000000;
-        return (pos.x >= -max && pos.x <= max &&
-            pos.y >= -max && pos.y <= max &&
-            pos.z >= -max && pos.z <= max);
-    }
-    function isValidStandardRotation(rot) {
-        const len = Math.sqrt(rot.x * rot.x + rot.y * rot.y + rot.z * rot.z + rot.w * rot.w);
-        return Math.abs(len - 1.0) < 0.01;
-    }
-    function isValidStandardScale(scale) {
-        const min = 0.001;
-        const max = 1000;
-        return (scale.x >= min && scale.x <= max &&
-            scale.y >= min && scale.y <= max &&
-            scale.z >= min && scale.z <= max);
     }
 
     AFRAME.registerSystem('vrm-network-system', {
@@ -367,10 +151,9 @@
                         }
                         const remote = this.remoteUsers.get(entity.user_id);
                         if (remote && entity.transform) {
-                            const sscs = unpackFromSSCS(entity.transform.pos, entity.transform.rot, entity.transform.scale);
-                            remote.targetPos.copy(sscs.position);
-                            remote.targetRot.copy(sscs.rotation);
-                            remote.targetScale.copy(sscs.scale);
+                            remote.targetPos.set(...entity.transform.pos);
+                            remote.targetRot.set(...entity.transform.rot);
+                            remote.targetScale.set(...entity.transform.scale);
                         }
                         if (remote && entity.expressions) {
                             Object.assign(remote.targetExpressions, entity.expressions);
@@ -397,20 +180,21 @@
             scene.appendChild(entity);
             const remote = {
                 entity,
-                targetPos: new THREE42__namespace.Vector3(),
-                targetRot: new THREE42__namespace.Quaternion(),
-                targetScale: new THREE42__namespace.Vector3(1, 1, 1),
+                vrm: null,
+                targetPos: new THREE14__namespace.Vector3(),
+                targetRot: new THREE14__namespace.Quaternion(),
+                targetScale: new THREE14__namespace.Vector3(1, 1, 1),
                 targetExpressions: {},
-                targetLookAt: new THREE42__namespace.Vector3(0, 0, 1),
-                currentPos: new THREE42__namespace.Vector3(),
-                currentRot: new THREE42__namespace.Quaternion(),
-                currentScale: new THREE42__namespace.Vector3(1, 1, 1),
+                targetLookAt: new THREE14__namespace.Vector3(0, 0, 1),
+                currentPos: new THREE14__namespace.Vector3(),
+                currentRot: new THREE14__namespace.Quaternion(),
+                currentScale: new THREE14__namespace.Vector3(1, 1, 1),
                 currentExpressions: {},
-                currentLookAt: new THREE42__namespace.Vector3(0, 0, 1),
-                vrmLoaded: false,
+                currentLookAt: new THREE14__namespace.Vector3(0, 0, 1),
             };
-            entity.addEventListener('model-loaded', () => {
-                remote.vrmLoaded = true;
+            entity.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                remote.vrm = detail.vrm;
             });
             this.remoteUsers.set(userId, remote);
         },
@@ -427,10 +211,9 @@
             }
             const remote = this.remoteUsers.get(userId);
             if (delta.transform) {
-                const sscs = unpackFromSSCS(delta.transform.pos, delta.transform.rot, delta.transform.scale);
-                remote.targetPos.copy(sscs.position);
-                remote.targetRot.copy(sscs.rotation);
-                remote.targetScale.copy(sscs.scale);
+                remote.targetPos.set(...delta.transform.pos);
+                remote.targetRot.set(...delta.transform.rot);
+                remote.targetScale.set(...delta.transform.scale);
             }
             if (delta.expressions) {
                 Object.assign(remote.targetExpressions, delta.expressions);
@@ -454,22 +237,21 @@
                 // Interpolate lookAt
                 remote.currentLookAt.lerp(remote.targetLookAt, lerpFactor);
                 // Apply expressions and lookAt if VRM is loaded
-                if (remote.vrmLoaded) {
-                    const vrmModel = remote.entity.components['vrm-model'];
-                    const vrm = vrmModel?.vrm;
-                    if (vrm) {
-                        if (vrm.expressionManager) {
-                            for (const [name, targetValue] of Object.entries(remote.targetExpressions)) {
-                                const current = remote.currentExpressions[name] ?? 0;
-                                const next = current + (targetValue - current) * lerpFactor;
-                                remote.currentExpressions[name] = next;
-                                vrm.expressionManager.setValue(name, next);
-                            }
-                        }
-                        if (vrm.lookAt) {
-                            vrm.lookAt.lookAt(remote.currentLookAt);
+                if (remote.vrm) {
+                    const vrm = remote.vrm;
+                    if (vrm.expressionManager) {
+                        for (const [name, targetValue] of Object.entries(remote.targetExpressions)) {
+                            const current = remote.currentExpressions[name] ?? 0;
+                            const next = current + (targetValue - current) * lerpFactor;
+                            remote.currentExpressions[name] = next;
+                            vrm.expressionManager.setValue(name, next);
                         }
                     }
+                    if (vrm.lookAt) {
+                        vrm.lookAt.lookAt(remote.currentLookAt);
+                    }
+                    // Update VRM itself (spring bones, constraints, materials)
+                    vrm.update(dt);
                 }
             }
         },
@@ -482,14 +264,14 @@
      */
     function toTrianglesDrawMode( geometry, drawMode ) {
 
-    	if ( drawMode === THREE42.TrianglesDrawMode ) {
+    	if ( drawMode === THREE14.TrianglesDrawMode ) {
 
     		console.warn( 'THREE.BufferGeometryUtils.toTrianglesDrawMode(): Geometry already defined as triangles.' );
     		return geometry;
 
     	}
 
-    	if ( drawMode === THREE42.TriangleFanDrawMode || drawMode === THREE42.TriangleStripDrawMode ) {
+    	if ( drawMode === THREE14.TriangleFanDrawMode || drawMode === THREE14.TriangleStripDrawMode ) {
 
     		let index = geometry.getIndex();
 
@@ -526,7 +308,7 @@
     		const numberOfTriangles = index.count - 2;
     		const newIndices = [];
 
-    		if ( drawMode === THREE42.TriangleFanDrawMode ) {
+    		if ( drawMode === THREE14.TriangleFanDrawMode ) {
 
     			// gl.TRIANGLE_FAN
 
@@ -585,7 +367,7 @@
 
     }
 
-    class GLTFLoader extends THREE42.Loader {
+    class GLTFLoader extends THREE14.Loader {
 
     	constructor( manager ) {
 
@@ -712,12 +494,12 @@
     			// resourcePath = 'https://my-cnd-server.com/assets/models/'
     			// referenced resource 'model.bin' will be loaded from 'https://my-cnd-server.com/assets/models/model.bin'
     			// referenced resource '../textures/texture.png' will be loaded from 'https://my-cnd-server.com/assets/textures/texture.png'
-    			const relativeUrl = THREE42.LoaderUtils.extractUrlBase( url );
-    			resourcePath = THREE42.LoaderUtils.resolveURL( relativeUrl, this.path );
+    			const relativeUrl = THREE14.LoaderUtils.extractUrlBase( url );
+    			resourcePath = THREE14.LoaderUtils.resolveURL( relativeUrl, this.path );
 
     		} else {
 
-    			resourcePath = THREE42.LoaderUtils.extractUrlBase( url );
+    			resourcePath = THREE14.LoaderUtils.extractUrlBase( url );
 
     		}
 
@@ -743,7 +525,7 @@
 
     		};
 
-    		const loader = new THREE42.FileLoader( this.manager );
+    		const loader = new THREE14.FileLoader( this.manager );
 
     		loader.setPath( this.path );
     		loader.setResponseType( 'arraybuffer' );
@@ -1080,27 +862,27 @@
     		const lightDef = lightDefs[ lightIndex ];
     		let lightNode;
 
-    		const color = new THREE42.Color( 0xffffff );
+    		const color = new THREE14.Color( 0xffffff );
 
-    		if ( lightDef.color !== undefined ) color.setRGB( lightDef.color[ 0 ], lightDef.color[ 1 ], lightDef.color[ 2 ], THREE42.LinearSRGBColorSpace );
+    		if ( lightDef.color !== undefined ) color.setRGB( lightDef.color[ 0 ], lightDef.color[ 1 ], lightDef.color[ 2 ], THREE14.LinearSRGBColorSpace );
 
     		const range = lightDef.range !== undefined ? lightDef.range : 0;
 
     		switch ( lightDef.type ) {
 
     			case 'directional':
-    				lightNode = new THREE42.DirectionalLight( color );
+    				lightNode = new THREE14.DirectionalLight( color );
     				lightNode.target.position.set( 0, 0, -1 );
     				lightNode.add( lightNode.target );
     				break;
 
     			case 'point':
-    				lightNode = new THREE42.PointLight( color );
+    				lightNode = new THREE14.PointLight( color );
     				lightNode.distance = range;
     				break;
 
     			case 'spot':
-    				lightNode = new THREE42.SpotLight( color );
+    				lightNode = new THREE14.SpotLight( color );
     				lightNode.distance = range;
     				// Handle spotlight properties.
     				lightDef.spot = lightDef.spot || {};
@@ -1181,7 +963,7 @@
 
     	getMaterialType() {
 
-    		return THREE42.MeshBasicMaterial;
+    		return THREE14.MeshBasicMaterial;
 
     	}
 
@@ -1189,7 +971,7 @@
 
     		const pending = [];
 
-    		materialParams.color = new THREE42.Color( 1.0, 1.0, 1.0 );
+    		materialParams.color = new THREE14.Color( 1.0, 1.0, 1.0 );
     		materialParams.opacity = 1.0;
 
     		const metallicRoughness = materialDef.pbrMetallicRoughness;
@@ -1200,14 +982,14 @@
 
     				const array = metallicRoughness.baseColorFactor;
 
-    				materialParams.color.setRGB( array[ 0 ], array[ 1 ], array[ 2 ], THREE42.LinearSRGBColorSpace );
+    				materialParams.color.setRGB( array[ 0 ], array[ 1 ], array[ 2 ], THREE14.LinearSRGBColorSpace );
     				materialParams.opacity = array[ 3 ];
 
     			}
 
     			if ( metallicRoughness.baseColorTexture !== undefined ) {
 
-    				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, THREE42.SRGBColorSpace ) );
+    				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, THREE14.SRGBColorSpace ) );
 
     			}
 
@@ -1279,7 +1061,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1330,7 +1112,7 @@
 
     				const scale = extension.clearcoatNormalTexture.scale;
 
-    				materialParams.clearcoatNormalScale = new THREE42.Vector2( scale, scale );
+    				materialParams.clearcoatNormalScale = new THREE14.Vector2( scale, scale );
 
     			}
 
@@ -1363,7 +1145,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1451,7 +1233,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1468,7 +1250,7 @@
 
     		const pending = [];
 
-    		materialParams.sheenColor = new THREE42.Color( 0, 0, 0 );
+    		materialParams.sheenColor = new THREE14.Color( 0, 0, 0 );
     		materialParams.sheenRoughness = 0;
     		materialParams.sheen = 1;
 
@@ -1477,7 +1259,7 @@
     		if ( extension.sheenColorFactor !== undefined ) {
 
     			const colorFactor = extension.sheenColorFactor;
-    			materialParams.sheenColor.setRGB( colorFactor[ 0 ], colorFactor[ 1 ], colorFactor[ 2 ], THREE42.LinearSRGBColorSpace );
+    			materialParams.sheenColor.setRGB( colorFactor[ 0 ], colorFactor[ 1 ], colorFactor[ 2 ], THREE14.LinearSRGBColorSpace );
 
     		}
 
@@ -1489,7 +1271,7 @@
 
     		if ( extension.sheenColorTexture !== undefined ) {
 
-    			pending.push( parser.assignTexture( materialParams, 'sheenColorMap', extension.sheenColorTexture, THREE42.SRGBColorSpace ) );
+    			pending.push( parser.assignTexture( materialParams, 'sheenColorMap', extension.sheenColorTexture, THREE14.SRGBColorSpace ) );
 
     		}
 
@@ -1527,7 +1309,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1585,7 +1367,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1615,7 +1397,7 @@
     		materialParams.attenuationDistance = extension.attenuationDistance || Infinity;
 
     		const colorArray = extension.attenuationColor || [ 1, 1, 1 ];
-    		materialParams.attenuationColor = new THREE42.Color().setRGB( colorArray[ 0 ], colorArray[ 1 ], colorArray[ 2 ], THREE42.LinearSRGBColorSpace );
+    		materialParams.attenuationColor = new THREE14.Color().setRGB( colorArray[ 0 ], colorArray[ 1 ], colorArray[ 2 ], THREE14.LinearSRGBColorSpace );
 
     		return Promise.all( pending );
 
@@ -1644,7 +1426,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1690,7 +1472,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1718,11 +1500,11 @@
     		}
 
     		const colorArray = extension.specularColorFactor || [ 1, 1, 1 ];
-    		materialParams.specularColor = new THREE42.Color().setRGB( colorArray[ 0 ], colorArray[ 1 ], colorArray[ 2 ], THREE42.LinearSRGBColorSpace );
+    		materialParams.specularColor = new THREE14.Color().setRGB( colorArray[ 0 ], colorArray[ 1 ], colorArray[ 2 ], THREE14.LinearSRGBColorSpace );
 
     		if ( extension.specularColorTexture !== undefined ) {
 
-    			pending.push( parser.assignTexture( materialParams, 'specularColorMap', extension.specularColorTexture, THREE42.SRGBColorSpace ) );
+    			pending.push( parser.assignTexture( materialParams, 'specularColorMap', extension.specularColorTexture, THREE14.SRGBColorSpace ) );
 
     		}
 
@@ -1754,7 +1536,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -1808,7 +1590,7 @@
 
     		if ( ! materialDef.extensions || ! materialDef.extensions[ this.name ] ) return null;
 
-    		return THREE42.MeshPhysicalMaterial;
+    		return THREE14.MeshPhysicalMaterial;
 
     	}
 
@@ -2235,12 +2017,12 @@
     			for ( const mesh of meshes ) {
 
     				// Temporal variables
-    				const m = new THREE42.Matrix4();
-    				const p = new THREE42.Vector3();
-    				const q = new THREE42.Quaternion();
-    				const s = new THREE42.Vector3( 1, 1, 1 );
+    				const m = new THREE14.Matrix4();
+    				const p = new THREE14.Vector3();
+    				const q = new THREE14.Quaternion();
+    				const s = new THREE14.Vector3( 1, 1, 1 );
 
-    				const instancedMesh = new THREE42.InstancedMesh( mesh.geometry, mesh.material, count );
+    				const instancedMesh = new THREE14.InstancedMesh( mesh.geometry, mesh.material, count );
 
     				for ( let i = 0; i < count; i ++ ) {
 
@@ -2272,7 +2054,7 @@
     					if ( attributeName === '_COLOR_0' ) {
 
     						const attr = attributes[ attributeName ];
-    						instancedMesh.instanceColor = new THREE42.InstancedBufferAttribute( attr.array, attr.itemSize, attr.normalized );
+    						instancedMesh.instanceColor = new THREE14.InstancedBufferAttribute( attr.array, attr.itemSize, attr.normalized );
 
     					} else if ( attributeName !== 'TRANSLATION' &&
     						 attributeName !== 'ROTATION' &&
@@ -2285,7 +2067,7 @@
     				}
 
     				// Just in case
-    				THREE42.Object3D.prototype.copy.call( instancedMesh, mesh );
+    				THREE14.Object3D.prototype.copy.call( instancedMesh, mesh );
 
     				this.parser.assignFinalMaterial( instancedMesh );
 
@@ -2456,7 +2238,7 @@
 
     					resolve( geometry );
 
-    				}, threeAttributeMap, attributeTypeMap, THREE42.LinearSRGBColorSpace, reject );
+    				}, threeAttributeMap, attributeTypeMap, THREE14.LinearSRGBColorSpace, reject );
 
     			} );
 
@@ -2546,7 +2328,7 @@
 
     // Spline Interpolation
     // Specification: https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#appendix-c-spline-interpolation
-    class GLTFCubicSplineInterpolant extends THREE42.Interpolant {
+    class GLTFCubicSplineInterpolant extends THREE14.Interpolant {
 
     	constructor( parameterPositions, sampleValues, sampleSize, resultBuffer ) {
 
@@ -2616,7 +2398,7 @@
 
     }
 
-    const _q = new THREE42.Quaternion();
+    const _q = new THREE14.Quaternion();
 
     class GLTFCubicSplineQuaternionInterpolant extends GLTFCubicSplineInterpolant {
 
@@ -2658,18 +2440,18 @@
     };
 
     const WEBGL_FILTERS = {
-    	9728: THREE42.NearestFilter,
-    	9729: THREE42.LinearFilter,
-    	9984: THREE42.NearestMipmapNearestFilter,
-    	9985: THREE42.LinearMipmapNearestFilter,
-    	9986: THREE42.NearestMipmapLinearFilter,
-    	9987: THREE42.LinearMipmapLinearFilter
+    	9728: THREE14.NearestFilter,
+    	9729: THREE14.LinearFilter,
+    	9984: THREE14.NearestMipmapNearestFilter,
+    	9985: THREE14.LinearMipmapNearestFilter,
+    	9986: THREE14.NearestMipmapLinearFilter,
+    	9987: THREE14.LinearMipmapLinearFilter
     };
 
     const WEBGL_WRAPPINGS = {
-    	33071: THREE42.ClampToEdgeWrapping,
-    	33648: THREE42.MirroredRepeatWrapping,
-    	10497: THREE42.RepeatWrapping
+    	33071: THREE14.ClampToEdgeWrapping,
+    	33648: THREE14.MirroredRepeatWrapping,
+    	10497: THREE14.RepeatWrapping
     };
 
     const WEBGL_TYPE_SIZES = {
@@ -2705,8 +2487,8 @@
     const INTERPOLATION = {
     	CUBICSPLINE: undefined, // We use a custom interpolant (GLTFCubicSplineInterpolation) for CUBICSPLINE tracks. Each
     		                        // keyframe track will be initialized with a default interpolation type, then modified.
-    	LINEAR: THREE42.InterpolateLinear,
-    	STEP: THREE42.InterpolateDiscrete
+    	LINEAR: THREE14.InterpolateLinear,
+    	STEP: THREE14.InterpolateDiscrete
     };
 
     const ALPHA_MODES = {
@@ -2722,14 +2504,14 @@
 
     	if ( cache[ 'DefaultMaterial' ] === undefined ) {
 
-    		cache[ 'DefaultMaterial' ] = new THREE42.MeshStandardMaterial( {
+    		cache[ 'DefaultMaterial' ] = new THREE14.MeshStandardMaterial( {
     			color: 0xFFFFFF,
     			emissive: 0x000000,
     			metalness: 1,
     			roughness: 1,
     			transparent: false,
     			depthTest: true,
-    			side: THREE42.FrontSide
+    			side: THREE14.FrontSide
     		} );
 
     	}
@@ -2992,7 +2774,7 @@
 
     }
 
-    const _identityMatrix = new THREE42.Matrix4();
+    const _identityMatrix = new THREE14.Matrix4();
 
     /* GLTF PARSER */
 
@@ -3045,18 +2827,18 @@
 
     		if ( typeof createImageBitmap === 'undefined' || isSafari || ( isFirefox && firefoxVersion < 98 ) ) {
 
-    			this.textureLoader = new THREE42.TextureLoader( this.options.manager );
+    			this.textureLoader = new THREE14.TextureLoader( this.options.manager );
 
     		} else {
 
-    			this.textureLoader = new THREE42.ImageBitmapLoader( this.options.manager );
+    			this.textureLoader = new THREE14.ImageBitmapLoader( this.options.manager );
 
     		}
 
     		this.textureLoader.setCrossOrigin( this.options.crossOrigin );
     		this.textureLoader.setRequestHeader( this.options.requestHeader );
 
-    		this.fileLoader = new THREE42.FileLoader( this.options.manager );
+    		this.fileLoader = new THREE14.FileLoader( this.options.manager );
     		this.fileLoader.setResponseType( 'arraybuffer' );
 
     		if ( this.options.crossOrigin === 'use-credentials' ) {
@@ -3450,7 +3232,7 @@
 
     		return new Promise( function ( resolve, reject ) {
 
-    			loader.load( THREE42.LoaderUtils.resolveURL( bufferDef.uri, options.path ), resolve, undefined, function () {
+    			loader.load( THREE14.LoaderUtils.resolveURL( bufferDef.uri, options.path ), resolve, undefined, function () {
 
     				reject( new Error( 'THREE.GLTFLoader: Failed to load buffer "' + bufferDef.uri + '".' ) );
 
@@ -3498,7 +3280,7 @@
     			const normalized = accessorDef.normalized === true;
 
     			const array = new TypedArray( accessorDef.count * itemSize );
-    			return Promise.resolve( new THREE42.BufferAttribute( array, itemSize, normalized ) );
+    			return Promise.resolve( new THREE14.BufferAttribute( array, itemSize, normalized ) );
 
     		}
 
@@ -3550,13 +3332,13 @@
     					array = new TypedArray( bufferView, ibSlice * byteStride, accessorDef.count * byteStride / elementBytes );
 
     					// Integer parameters to IB/IBA are in array elements, not bytes.
-    					ib = new THREE42.InterleavedBuffer( array, byteStride / elementBytes );
+    					ib = new THREE14.InterleavedBuffer( array, byteStride / elementBytes );
 
     					parser.cache.add( ibCacheKey, ib );
 
     				}
 
-    				bufferAttribute = new THREE42.InterleavedBufferAttribute( ib, itemSize, ( byteOffset % byteStride ) / elementBytes, normalized );
+    				bufferAttribute = new THREE14.InterleavedBufferAttribute( ib, itemSize, ( byteOffset % byteStride ) / elementBytes, normalized );
 
     			} else {
 
@@ -3570,7 +3352,7 @@
 
     				}
 
-    				bufferAttribute = new THREE42.BufferAttribute( array, itemSize, normalized );
+    				bufferAttribute = new THREE14.BufferAttribute( array, itemSize, normalized );
 
     			}
 
@@ -3589,7 +3371,7 @@
     				if ( bufferView !== null ) {
 
     					// Avoid modifying the original ArrayBuffer, if the bufferView wasn't initialized with zeroes.
-    					bufferAttribute = new THREE42.BufferAttribute( bufferAttribute.array.slice(), bufferAttribute.itemSize, bufferAttribute.normalized );
+    					bufferAttribute = new THREE14.BufferAttribute( bufferAttribute.array.slice(), bufferAttribute.itemSize, bufferAttribute.normalized );
 
     				}
 
@@ -3671,10 +3453,10 @@
     			const samplers = json.samplers || {};
     			const sampler = samplers[ textureDef.sampler ] || {};
 
-    			texture.magFilter = WEBGL_FILTERS[ sampler.magFilter ] || THREE42.LinearFilter;
-    			texture.minFilter = WEBGL_FILTERS[ sampler.minFilter ] || THREE42.LinearMipmapLinearFilter;
-    			texture.wrapS = WEBGL_WRAPPINGS[ sampler.wrapS ] || THREE42.RepeatWrapping;
-    			texture.wrapT = WEBGL_WRAPPINGS[ sampler.wrapT ] || THREE42.RepeatWrapping;
+    			texture.magFilter = WEBGL_FILTERS[ sampler.magFilter ] || THREE14.LinearFilter;
+    			texture.minFilter = WEBGL_FILTERS[ sampler.minFilter ] || THREE14.LinearMipmapLinearFilter;
+    			texture.wrapS = WEBGL_WRAPPINGS[ sampler.wrapS ] || THREE14.RepeatWrapping;
+    			texture.wrapT = WEBGL_WRAPPINGS[ sampler.wrapT ] || THREE14.RepeatWrapping;
 
     			parser.associations.set( texture, { textures: textureIndex } );
 
@@ -3740,7 +3522,7 @@
 
     					onLoad = function ( imageBitmap ) {
 
-    						const texture = new THREE42.Texture( imageBitmap );
+    						const texture = new THREE14.Texture( imageBitmap );
     						texture.needsUpdate = true;
 
     						resolve( texture );
@@ -3749,7 +3531,7 @@
 
     				}
 
-    				loader.load( THREE42.LoaderUtils.resolveURL( sourceURI, options.path ), onLoad, undefined, reject );
+    				loader.load( THREE14.LoaderUtils.resolveURL( sourceURI, options.path ), onLoad, undefined, reject );
 
     			} );
 
@@ -3854,8 +3636,8 @@
 
     			if ( ! pointsMaterial ) {
 
-    				pointsMaterial = new THREE42.PointsMaterial();
-    				THREE42.Material.prototype.copy.call( pointsMaterial, material );
+    				pointsMaterial = new THREE14.PointsMaterial();
+    				THREE14.Material.prototype.copy.call( pointsMaterial, material );
     				pointsMaterial.color.copy( material.color );
     				pointsMaterial.map = material.map;
     				pointsMaterial.sizeAttenuation = false; // glTF spec says points should be 1px
@@ -3874,8 +3656,8 @@
 
     			if ( ! lineMaterial ) {
 
-    				lineMaterial = new THREE42.LineBasicMaterial();
-    				THREE42.Material.prototype.copy.call( lineMaterial, material );
+    				lineMaterial = new THREE14.LineBasicMaterial();
+    				THREE14.Material.prototype.copy.call( lineMaterial, material );
     				lineMaterial.color.copy( material.color );
     				lineMaterial.map = material.map;
 
@@ -3929,7 +3711,7 @@
 
     	getMaterialType( /* materialIndex */ ) {
 
-    		return THREE42.MeshStandardMaterial;
+    		return THREE14.MeshStandardMaterial;
 
     	}
 
@@ -3964,21 +3746,21 @@
 
     			const metallicRoughness = materialDef.pbrMetallicRoughness || {};
 
-    			materialParams.color = new THREE42.Color( 1.0, 1.0, 1.0 );
+    			materialParams.color = new THREE14.Color( 1.0, 1.0, 1.0 );
     			materialParams.opacity = 1.0;
 
     			if ( Array.isArray( metallicRoughness.baseColorFactor ) ) {
 
     				const array = metallicRoughness.baseColorFactor;
 
-    				materialParams.color.setRGB( array[ 0 ], array[ 1 ], array[ 2 ], THREE42.LinearSRGBColorSpace );
+    				materialParams.color.setRGB( array[ 0 ], array[ 1 ], array[ 2 ], THREE14.LinearSRGBColorSpace );
     				materialParams.opacity = array[ 3 ];
 
     			}
 
     			if ( metallicRoughness.baseColorTexture !== undefined ) {
 
-    				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, THREE42.SRGBColorSpace ) );
+    				pending.push( parser.assignTexture( materialParams, 'map', metallicRoughness.baseColorTexture, THREE14.SRGBColorSpace ) );
 
     			}
 
@@ -4008,7 +3790,7 @@
 
     		if ( materialDef.doubleSided === true ) {
 
-    			materialParams.side = THREE42.DoubleSide;
+    			materialParams.side = THREE14.DoubleSide;
 
     		}
 
@@ -4033,11 +3815,11 @@
 
     		}
 
-    		if ( materialDef.normalTexture !== undefined && materialType !== THREE42.MeshBasicMaterial ) {
+    		if ( materialDef.normalTexture !== undefined && materialType !== THREE14.MeshBasicMaterial ) {
 
     			pending.push( parser.assignTexture( materialParams, 'normalMap', materialDef.normalTexture ) );
 
-    			materialParams.normalScale = new THREE42.Vector2( 1, 1 );
+    			materialParams.normalScale = new THREE14.Vector2( 1, 1 );
 
     			if ( materialDef.normalTexture.scale !== undefined ) {
 
@@ -4049,7 +3831,7 @@
 
     		}
 
-    		if ( materialDef.occlusionTexture !== undefined && materialType !== THREE42.MeshBasicMaterial ) {
+    		if ( materialDef.occlusionTexture !== undefined && materialType !== THREE14.MeshBasicMaterial ) {
 
     			pending.push( parser.assignTexture( materialParams, 'aoMap', materialDef.occlusionTexture ) );
 
@@ -4061,16 +3843,16 @@
 
     		}
 
-    		if ( materialDef.emissiveFactor !== undefined && materialType !== THREE42.MeshBasicMaterial ) {
+    		if ( materialDef.emissiveFactor !== undefined && materialType !== THREE14.MeshBasicMaterial ) {
 
     			const emissiveFactor = materialDef.emissiveFactor;
-    			materialParams.emissive = new THREE42.Color().setRGB( emissiveFactor[ 0 ], emissiveFactor[ 1 ], emissiveFactor[ 2 ], THREE42.LinearSRGBColorSpace );
+    			materialParams.emissive = new THREE14.Color().setRGB( emissiveFactor[ 0 ], emissiveFactor[ 1 ], emissiveFactor[ 2 ], THREE14.LinearSRGBColorSpace );
 
     		}
 
-    		if ( materialDef.emissiveTexture !== undefined && materialType !== THREE42.MeshBasicMaterial ) {
+    		if ( materialDef.emissiveTexture !== undefined && materialType !== THREE14.MeshBasicMaterial ) {
 
-    			pending.push( parser.assignTexture( materialParams, 'emissiveMap', materialDef.emissiveTexture, THREE42.SRGBColorSpace ) );
+    			pending.push( parser.assignTexture( materialParams, 'emissiveMap', materialDef.emissiveTexture, THREE14.SRGBColorSpace ) );
 
     		}
 
@@ -4095,7 +3877,7 @@
     	/** When Object3D instances are targeted by animation, they need unique names. */
     	createUniqueName( originalName ) {
 
-    		const sanitizedName = THREE42.PropertyBinding.sanitizeNodeName( originalName || '' );
+    		const sanitizedName = THREE14.PropertyBinding.sanitizeNodeName( originalName || '' );
 
     		if ( sanitizedName in this.nodeNamesUsed ) {
 
@@ -4164,7 +3946,7 @@
     				} else {
 
     					// Otherwise create a new geometry
-    					geometryPromise = addPrimitiveAttributes( new THREE42.BufferGeometry(), primitive, parser );
+    					geometryPromise = addPrimitiveAttributes( new THREE14.BufferGeometry(), primitive, parser );
 
     				}
 
@@ -4234,8 +4016,8 @@
 
     					// .isSkinnedMesh isn't in glTF spec. See ._markDefs()
     					mesh = meshDef.isSkinnedMesh === true
-    						? new THREE42.SkinnedMesh( geometry, material )
-    						: new THREE42.Mesh( geometry, material );
+    						? new THREE14.SkinnedMesh( geometry, material )
+    						: new THREE14.Mesh( geometry, material );
 
     					if ( mesh.isSkinnedMesh === true ) {
 
@@ -4246,29 +4028,29 @@
 
     					if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ) {
 
-    						mesh.geometry = toTrianglesDrawMode( mesh.geometry, THREE42.TriangleStripDrawMode );
+    						mesh.geometry = toTrianglesDrawMode( mesh.geometry, THREE14.TriangleStripDrawMode );
 
     					} else if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLE_FAN ) {
 
-    						mesh.geometry = toTrianglesDrawMode( mesh.geometry, THREE42.TriangleFanDrawMode );
+    						mesh.geometry = toTrianglesDrawMode( mesh.geometry, THREE14.TriangleFanDrawMode );
 
     					}
 
     				} else if ( primitive.mode === WEBGL_CONSTANTS.LINES ) {
 
-    					mesh = new THREE42.LineSegments( geometry, material );
+    					mesh = new THREE14.LineSegments( geometry, material );
 
     				} else if ( primitive.mode === WEBGL_CONSTANTS.LINE_STRIP ) {
 
-    					mesh = new THREE42.Line( geometry, material );
+    					mesh = new THREE14.Line( geometry, material );
 
     				} else if ( primitive.mode === WEBGL_CONSTANTS.LINE_LOOP ) {
 
-    					mesh = new THREE42.LineLoop( geometry, material );
+    					mesh = new THREE14.LineLoop( geometry, material );
 
     				} else if ( primitive.mode === WEBGL_CONSTANTS.POINTS ) {
 
-    					mesh = new THREE42.Points( geometry, material );
+    					mesh = new THREE14.Points( geometry, material );
 
     				} else {
 
@@ -4311,7 +4093,7 @@
 
     			}
 
-    			const group = new THREE42.Group();
+    			const group = new THREE14.Group();
 
     			if ( meshDef.extensions ) addUnknownExtensionsToUserData( extensions, group, meshDef );
 
@@ -4349,11 +4131,11 @@
 
     		if ( cameraDef.type === 'perspective' ) {
 
-    			camera = new THREE42.PerspectiveCamera( THREE42.MathUtils.radToDeg( params.yfov ), params.aspectRatio || 1, params.znear || 1, params.zfar || 2e6 );
+    			camera = new THREE14.PerspectiveCamera( THREE14.MathUtils.radToDeg( params.yfov ), params.aspectRatio || 1, params.znear || 1, params.zfar || 2e6 );
 
     		} else if ( cameraDef.type === 'orthographic' ) {
 
-    			camera = new THREE42.OrthographicCamera( - params.xmag, params.xmag, params.ymag, - params.ymag, params.znear, params.zfar );
+    			camera = new THREE14.OrthographicCamera( - params.xmag, params.xmag, params.ymag, - params.ymag, params.znear, params.zfar );
 
     		}
 
@@ -4411,7 +4193,7 @@
 
     					bones.push( jointNode );
 
-    					const mat = new THREE42.Matrix4();
+    					const mat = new THREE14.Matrix4();
 
     					if ( inverseBindMatrices !== null ) {
 
@@ -4429,7 +4211,7 @@
 
     			}
 
-    			return new THREE42.Skeleton( bones, boneInverses );
+    			return new THREE14.Skeleton( bones, boneInverses );
 
     		} );
 
@@ -4521,7 +4303,7 @@
 
     			}
 
-    			return new THREE42.AnimationClip( animationName, undefined, tracks );
+    			return new THREE14.AnimationClip( animationName, undefined, tracks );
 
     		} );
 
@@ -4688,11 +4470,11 @@
     			// .isBone isn't in glTF spec. See ._markDefs
     			if ( nodeDef.isBone === true ) {
 
-    				node = new THREE42.Bone();
+    				node = new THREE14.Bone();
 
     			} else if ( objects.length > 1 ) {
 
-    				node = new THREE42.Group();
+    				node = new THREE14.Group();
 
     			} else if ( objects.length === 1 ) {
 
@@ -4700,7 +4482,7 @@
 
     			} else {
 
-    				node = new THREE42.Object3D();
+    				node = new THREE14.Object3D();
 
     			}
 
@@ -4727,7 +4509,7 @@
 
     			if ( nodeDef.matrix !== undefined ) {
 
-    				const matrix = new THREE42.Matrix4();
+    				const matrix = new THREE14.Matrix4();
     				matrix.fromArray( nodeDef.matrix );
     				node.applyMatrix4( matrix );
 
@@ -4782,7 +4564,7 @@
 
     		// Loader returns Group, not Scene.
     		// See: https://github.com/mrdoob/three.js/issues/18342#issuecomment-578981172
-    		const scene = new THREE42.Group();
+    		const scene = new THREE14.Group();
     		if ( sceneDef.name ) scene.name = parser.createUniqueName( sceneDef.name );
 
     		assignExtrasToUserData( scene, sceneDef );
@@ -4815,7 +4597,7 @@
 
     				for ( const [ key, value ] of parser.associations ) {
 
-    					if ( key instanceof THREE42.Material || key instanceof THREE42.Texture ) {
+    					if ( key instanceof THREE14.Material || key instanceof THREE14.Texture ) {
 
     						reducedAssociations.set( key, value );
 
@@ -4878,18 +4660,18 @@
 
     			case PATH_PROPERTIES.weights:
 
-    				TypedKeyframeTrack = THREE42.NumberKeyframeTrack;
+    				TypedKeyframeTrack = THREE14.NumberKeyframeTrack;
     				break;
 
     			case PATH_PROPERTIES.rotation:
 
-    				TypedKeyframeTrack = THREE42.QuaternionKeyframeTrack;
+    				TypedKeyframeTrack = THREE14.QuaternionKeyframeTrack;
     				break;
 
     			case PATH_PROPERTIES.position:
     			case PATH_PROPERTIES.scale:
 
-    				TypedKeyframeTrack = THREE42.VectorKeyframeTrack;
+    				TypedKeyframeTrack = THREE14.VectorKeyframeTrack;
     				break;
 
     			default:
@@ -4897,12 +4679,12 @@
     				switch ( outputAccessor.itemSize ) {
 
     					case 1:
-    						TypedKeyframeTrack = THREE42.NumberKeyframeTrack;
+    						TypedKeyframeTrack = THREE14.NumberKeyframeTrack;
     						break;
     					case 2:
     					case 3:
     					default:
-    						TypedKeyframeTrack = THREE42.VectorKeyframeTrack;
+    						TypedKeyframeTrack = THREE14.VectorKeyframeTrack;
     						break;
 
     				}
@@ -4911,7 +4693,7 @@
 
     		}
 
-    		const interpolation = sampler.interpolation !== undefined ? INTERPOLATION[ sampler.interpolation ] : THREE42.InterpolateLinear;
+    		const interpolation = sampler.interpolation !== undefined ? INTERPOLATION[ sampler.interpolation ] : THREE14.InterpolateLinear;
 
 
     		const outputArray = this._getArrayFromAccessor( outputAccessor );
@@ -4971,7 +4753,7 @@
     			// representing inTangent, splineVertex, and outTangent. As a result, track.getValueSize()
     			// must be divided by three to get the interpolant's sampleSize argument.
 
-    			const interpolantType = ( this instanceof THREE42.QuaternionKeyframeTrack ) ? GLTFCubicSplineQuaternionInterpolant : GLTFCubicSplineInterpolant;
+    			const interpolantType = ( this instanceof THREE14.QuaternionKeyframeTrack ) ? GLTFCubicSplineQuaternionInterpolant : GLTFCubicSplineInterpolant;
 
     			return new interpolantType( this.times, this.values, this.getValueSize() / 3, result );
 
@@ -4993,7 +4775,7 @@
 
     	const attributes = primitiveDef.attributes;
 
-    	const box = new THREE42.Box3();
+    	const box = new THREE14.Box3();
 
     	if ( attributes.POSITION !== undefined ) {
 
@@ -5007,8 +4789,8 @@
     		if ( min !== undefined && max !== undefined ) {
 
     			box.set(
-    				new THREE42.Vector3( min[ 0 ], min[ 1 ], min[ 2 ] ),
-    				new THREE42.Vector3( max[ 0 ], max[ 1 ], max[ 2 ] )
+    				new THREE14.Vector3( min[ 0 ], min[ 1 ], min[ 2 ] ),
+    				new THREE14.Vector3( max[ 0 ], max[ 1 ], max[ 2 ] )
     			);
 
     			if ( accessor.normalized ) {
@@ -5037,8 +4819,8 @@
 
     	if ( targets !== undefined ) {
 
-    		const maxDisplacement = new THREE42.Vector3();
-    		const vector = new THREE42.Vector3();
+    		const maxDisplacement = new THREE14.Vector3();
+    		const vector = new THREE14.Vector3();
 
     		for ( let i = 0, il = targets.length; i < il; i ++ ) {
 
@@ -5090,7 +4872,7 @@
 
     	geometry.boundingBox = box;
 
-    	const sphere = new THREE42.Sphere();
+    	const sphere = new THREE14.Sphere();
 
     	box.getCenter( sphere.center );
     	sphere.radius = box.min.distanceTo( box.max ) / 2;
@@ -5145,9 +4927,9 @@
 
     	}
 
-    	if ( THREE42.ColorManagement.workingColorSpace !== THREE42.LinearSRGBColorSpace && 'COLOR_0' in attributes ) {
+    	if ( THREE14.ColorManagement.workingColorSpace !== THREE14.LinearSRGBColorSpace && 'COLOR_0' in attributes ) {
 
-    		console.warn( `THREE.GLTFLoader: Converting vertex colors from "srgb-linear" to "${THREE42.ColorManagement.workingColorSpace}" not supported.` );
+    		console.warn( `THREE.GLTFLoader: Converting vertex colors from "srgb-linear" to "${THREE14.ColorManagement.workingColorSpace}" not supported.` );
 
     	}
 
@@ -5173,7 +4955,7 @@
      * @pixiv/three-vrm is distributed under MIT License
      * https://github.com/pixiv/three-vrm/blob/release/LICENSE
      */
-    var __async = (__this, __arguments, generator) => {
+    var __async$1 = (__this, __arguments, generator) => {
       return new Promise((resolve, reject) => {
         var fulfilled = (value) => {
           try {
@@ -5213,7 +4995,7 @@
         step((generator = generator.apply(__this, __arguments)).next());
       });
     };
-    var VRMExpression = class extends THREE42__namespace.Object3D {
+    var VRMExpression = class extends THREE14__namespace.Object3D {
       constructor(expressionName) {
         super();
         this.weight = 0;
@@ -5367,7 +5149,7 @@
         return map;
       });
     }
-    var VRMExpressionPresetName = {
+    var VRMExpressionPresetName$1 = {
       Aa: "aa",
       Ih: "ih",
       Ou: "ou",
@@ -5412,7 +5194,7 @@
        */
       get presetExpressionMap() {
         const result = {};
-        const presetNameSet = new Set(Object.values(VRMExpressionPresetName));
+        const presetNameSet = new Set(Object.values(VRMExpressionPresetName$1));
         Object.entries(this._expressionMap).forEach(([name, expression]) => {
           if (presetNameSet.has(name)) {
             result[name] = expression;
@@ -5425,7 +5207,7 @@
        */
       get customExpressionMap() {
         const result = {};
-        const presetNameSet = new Set(Object.values(VRMExpressionPresetName));
+        const presetNameSet = new Set(Object.values(VRMExpressionPresetName$1));
         Object.entries(this._expressionMap).forEach(([name, expression]) => {
           if (!presetNameSet.has(name)) {
             result[name] = expression;
@@ -5606,7 +5388,7 @@
       _RimColor: VRMExpressionMaterialColorType.RimColor,
       _OutlineColor: VRMExpressionMaterialColorType.OutlineColor
     };
-    var _color = new THREE42__namespace.Color();
+    var _color = new THREE14__namespace.Color();
     var _VRMExpressionMaterialColorBind = class _VRMExpressionMaterialColorBind2 {
       constructor({
         material,
@@ -5669,7 +5451,7 @@
         }
         const target = material[propertyName];
         const initialValue = target.clone();
-        const deltaValue = new THREE42__namespace.Color(
+        const deltaValue = new THREE14__namespace.Color(
           targetValue.r - initialValue.r,
           targetValue.g - initialValue.g,
           targetValue.b - initialValue.b
@@ -5746,7 +5528,7 @@
         });
       }
     };
-    var _v2 = new THREE42__namespace.Vector2();
+    var _v2 = new THREE14__namespace.Vector2();
     var _VRMExpressionTextureTransformBind = class _VRMExpressionTextureTransformBind2 {
       constructor({
         material,
@@ -5886,7 +5668,7 @@
           if (!schemaExpressions) {
             return null;
           }
-          const presetNameSet = new Set(Object.values(VRMExpressionPresetName));
+          const presetNameSet = new Set(Object.values(VRMExpressionPresetName$1));
           const nameSchemaExpressionMap = /* @__PURE__ */ new Map();
           if (schemaExpressions.preset != null) {
             Object.entries(schemaExpressions.preset).forEach(([name, schemaExpression]) => {
@@ -5967,7 +5749,7 @@
                       new VRMExpressionMaterialColorBind({
                         material,
                         type: bind.type,
-                        targetValue: new THREE42__namespace.Color().fromArray(bind.targetValue),
+                        targetValue: new THREE14__namespace.Color().fromArray(bind.targetValue),
                         targetAlpha: bind.targetValue[3]
                       })
                     );
@@ -5984,8 +5766,8 @@
                     expression.addBind(
                       new VRMExpressionTextureTransformBind({
                         material,
-                        offset: new THREE42__namespace.Vector2().fromArray((_a3 = bind.offset) != null ? _a3 : [0, 0]),
-                        scale: new THREE42__namespace.Vector2().fromArray((_b3 = bind.scale) != null ? _b3 : [1, 1])
+                        offset: new THREE14__namespace.Vector2().fromArray((_a3 = bind.offset) != null ? _a3 : [0, 0]),
+                        scale: new THREE14__namespace.Vector2().fromArray((_b3 = bind.scale) != null ? _b3 : [1, 1])
                       })
                     );
                   });
@@ -6096,8 +5878,8 @@
                   const materialPropertyName = materialValue.propertyName;
                   materials.forEach((material) => {
                     if (materialPropertyName === "_MainTex_ST") {
-                      const scale = new THREE42__namespace.Vector2(materialValue.targetValue[0], materialValue.targetValue[1]);
-                      const offset = new THREE42__namespace.Vector2(materialValue.targetValue[2], materialValue.targetValue[3]);
+                      const scale = new THREE14__namespace.Vector2(materialValue.targetValue[0], materialValue.targetValue[1]);
+                      const offset = new THREE14__namespace.Vector2(materialValue.targetValue[2], materialValue.targetValue[3]);
                       offset.y = 1 - offset.y - scale.y;
                       expression.addBind(
                         new VRMExpressionTextureTransformBind({
@@ -6114,7 +5896,7 @@
                         new VRMExpressionMaterialColorBind({
                           material,
                           type: materialColorType,
-                          targetValue: new THREE42__namespace.Color().fromArray(materialValue.targetValue),
+                          targetValue: new THREE14__namespace.Color().fromArray(materialValue.targetValue),
                           targetAlpha: materialValue.targetValue[3]
                         })
                       );
@@ -6283,13 +6065,13 @@
         return count;
       }
       _createErasedMesh(src, erasingBonesIndex) {
-        const dst = new THREE42__namespace.SkinnedMesh(src.geometry.clone(), src.material);
+        const dst = new THREE14__namespace.SkinnedMesh(src.geometry.clone(), src.material);
         dst.name = `${src.name}(erase)`;
         dst.frustumCulled = src.frustumCulled;
         dst.layers.set(this._firstPersonOnlyLayer);
         const geometry = dst.geometry;
         const skinIndexAttr = geometry.getAttribute("skinIndex");
-        const skinIndexAttrArray = skinIndexAttr instanceof THREE42__namespace.GLBufferAttribute ? [] : skinIndexAttr.array;
+        const skinIndexAttrArray = skinIndexAttr instanceof THREE14__namespace.GLBufferAttribute ? [] : skinIndexAttr.array;
         const skinIndex = [];
         for (let i = 0; i < skinIndexAttrArray.length; i += 4) {
           skinIndex.push([
@@ -6300,7 +6082,7 @@
           ]);
         }
         const skinWeightAttr = geometry.getAttribute("skinWeight");
-        const skinWeightAttrArray = skinWeightAttr instanceof THREE42__namespace.GLBufferAttribute ? [] : skinWeightAttr.array;
+        const skinWeightAttrArray = skinWeightAttr instanceof THREE14__namespace.GLBufferAttribute ? [] : skinWeightAttr.array;
         const skinWeight = [];
         for (let i = 0; i < skinWeightAttrArray.length; i += 4) {
           skinWeight.push([
@@ -6324,7 +6106,7 @@
         if (src.onBeforeRender) {
           dst.onBeforeRender = src.onBeforeRender;
         }
-        dst.bind(new THREE42__namespace.Skeleton(src.skeleton.bones, src.skeleton.boneInverses), new THREE42__namespace.Matrix4());
+        dst.bind(new THREE14__namespace.Skeleton(src.skeleton.bones, src.skeleton.boneInverses), new THREE14__namespace.Matrix4());
         return dst;
       }
       _createHeadlessModelForSkinnedMesh(parent, mesh) {
@@ -6347,7 +6129,7 @@
           if (this._isEraseTarget(node)) {
             node.traverse((child) => child.layers.set(this._thirdPersonOnlyLayer));
           } else {
-            const parent = new THREE42__namespace.Group();
+            const parent = new THREE14__namespace.Group();
             parent.name = `_headless_${node.name}`;
             parent.layers.set(this._firstPersonOnlyLayer);
             node.parent.add(parent);
@@ -6379,7 +6161,7 @@
     _VRMFirstPerson.DEFAULT_FIRSTPERSON_ONLY_LAYER = 9;
     _VRMFirstPerson.DEFAULT_THIRDPERSON_ONLY_LAYER = 10;
     var VRMFirstPerson = _VRMFirstPerson;
-    var POSSIBLE_SPEC_VERSIONS2 = /* @__PURE__ */ new Set(["1.0", "1.0-beta"]);
+    var POSSIBLE_SPEC_VERSIONS2$1 = /* @__PURE__ */ new Set(["1.0", "1.0-beta"]);
     var VRMFirstPersonLoaderPlugin = class {
       get name() {
         return "VRMFirstPersonLoaderPlugin";
@@ -6435,7 +6217,7 @@
             return null;
           }
           const specVersion = extension.specVersion;
-          if (!POSSIBLE_SPEC_VERSIONS2.has(specVersion)) {
+          if (!POSSIBLE_SPEC_VERSIONS2$1.has(specVersion)) {
             console.warn(`VRMFirstPersonLoaderPlugin: Unknown VRMC_vrm specVersion "${specVersion}"`);
             return null;
           }
@@ -6490,16 +6272,16 @@
         }
       }
     };
-    var _v3A = new THREE42__namespace.Vector3();
-    var _v3B = new THREE42__namespace.Vector3();
-    var _quatA = new THREE42__namespace.Quaternion();
-    var VRMHumanoidHelper = class extends THREE42__namespace.Group {
+    var _v3A = new THREE14__namespace.Vector3();
+    var _v3B = new THREE14__namespace.Vector3();
+    var _quatA = new THREE14__namespace.Quaternion();
+    var VRMHumanoidHelper = class extends THREE14__namespace.Group {
       constructor(humanoid) {
         super();
         this.vrmHumanoid = humanoid;
         this._boneAxesMap = /* @__PURE__ */ new Map();
         Object.values(humanoid.humanBones).forEach((bone) => {
-          const helper = new THREE42__namespace.AxesHelper(1);
+          const helper = new THREE14__namespace.AxesHelper(1);
           helper.matrixAutoUpdate = false;
           helper.material.depthTest = false;
           helper.material.depthWrite = false;
@@ -6580,7 +6362,7 @@
       "rightLittleIntermediate",
       "rightLittleDistal"
     ];
-    var VRMHumanBoneParentMap = {
+    var VRMHumanBoneParentMap$1 = {
       hips: null,
       spine: "hips",
       chest: "spine",
@@ -6637,7 +6419,7 @@
       rightLittleIntermediate: "rightLittleProximal",
       rightLittleDistal: "rightLittleIntermediate"
     };
-    function quatInvertCompat(target) {
+    function quatInvertCompat$1(target) {
       if (target.invert) {
         target.invert();
       } else {
@@ -6645,8 +6427,8 @@
       }
       return target;
     }
-    var _v3A2 = new THREE42__namespace.Vector3();
-    var _quatA2 = new THREE42__namespace.Quaternion();
+    var _v3A2 = new THREE14__namespace.Vector3();
+    var _quatA2 = new THREE14__namespace.Quaternion();
     var VRMRig = class {
       /**
        * Create a new {@link VRMHumanoid}.
@@ -6698,7 +6480,7 @@
             _v3A2.fromArray(restState.position).negate();
           }
           if (restState == null ? void 0 : restState.rotation) {
-            quatInvertCompat(_quatA2.fromArray(restState.rotation));
+            quatInvertCompat$1(_quatA2.fromArray(restState.rotation));
           }
           _v3A2.add(node.position);
           _quatA2.premultiply(node.quaternion);
@@ -6778,12 +6560,12 @@
         return (_b = (_a = this.humanBones[name]) == null ? void 0 : _a.node) != null ? _b : null;
       }
     };
-    var _v3A3 = new THREE42__namespace.Vector3();
-    var _quatA3 = new THREE42__namespace.Quaternion();
-    var _boneWorldPos = new THREE42__namespace.Vector3();
+    var _v3A3 = new THREE14__namespace.Vector3();
+    var _quatA3 = new THREE14__namespace.Quaternion();
+    var _boneWorldPos = new THREE14__namespace.Vector3();
     var VRMHumanoidRig = class _VRMHumanoidRig extends VRMRig {
       static _setupTransforms(modelRig) {
-        const root = new THREE42__namespace.Object3D();
+        const root = new THREE14__namespace.Object3D();
         root.name = "VRMHumanoidRig";
         const boneWorldPositions = {};
         const boneRotations = {};
@@ -6792,13 +6574,13 @@
           var _a;
           const boneNode = modelRig.getBoneNode(boneName);
           if (boneNode) {
-            const boneWorldPosition = new THREE42__namespace.Vector3();
-            const boneWorldRotation = new THREE42__namespace.Quaternion();
+            const boneWorldPosition = new THREE14__namespace.Vector3();
+            const boneWorldRotation = new THREE14__namespace.Quaternion();
             boneNode.updateWorldMatrix(true, false);
             boneNode.matrixWorld.decompose(boneWorldPosition, boneWorldRotation, _v3A3);
             boneWorldPositions[boneName] = boneWorldPosition;
             boneRotations[boneName] = boneNode.quaternion.clone();
-            const parentWorldRotation = new THREE42__namespace.Quaternion();
+            const parentWorldRotation = new THREE14__namespace.Quaternion();
             (_a = boneNode.parent) == null ? void 0 : _a.matrixWorld.decompose(_v3A3, parentWorldRotation, _v3A3);
             parentWorldRotations[boneName] = parentWorldRotation;
           }
@@ -6812,13 +6594,13 @@
             let currentBoneName = boneName;
             let parentBoneWorldPosition;
             while (parentBoneWorldPosition == null) {
-              currentBoneName = VRMHumanBoneParentMap[currentBoneName];
+              currentBoneName = VRMHumanBoneParentMap$1[currentBoneName];
               if (currentBoneName == null) {
                 break;
               }
               parentBoneWorldPosition = boneWorldPositions[currentBoneName];
             }
-            const rigBoneNode = new THREE42__namespace.Object3D();
+            const rigBoneNode = new THREE14__namespace.Object3D();
             rigBoneNode.name = "Normalized_" + boneNode.name;
             const parentRigBoneNode = currentBoneName ? (_a = rigBones[currentBoneName]) == null ? void 0 : _a.node : root;
             parentRigBoneNode.add(rigBoneNode);
@@ -7280,7 +7062,7 @@
         return humanBones;
       }
     };
-    var FanBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var FanBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor() {
         super();
         this._currentTheta = 0;
@@ -7289,9 +7071,9 @@
         this.radius = 0;
         this._currentTheta = 0;
         this._currentRadius = 0;
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(65 * 3), 3);
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(65 * 3), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(3 * 63), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(3 * 63), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -7325,16 +7107,16 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var LineAndSphereBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var LineAndSphereBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor() {
         super();
         this.radius = 0;
         this._currentRadius = 0;
-        this.tail = new THREE42__namespace.Vector3();
-        this._currentTail = new THREE42__namespace.Vector3();
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(294), 3);
+        this.tail = new THREE14__namespace.Vector3();
+        this._currentTail = new THREE14__namespace.Vector3();
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(294), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(194), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(194), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -7377,14 +7159,14 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var _quatA4 = new THREE42__namespace.Quaternion();
-    var _quatB = new THREE42__namespace.Quaternion();
-    var _v3A4 = new THREE42__namespace.Vector3();
-    var _v3B2 = new THREE42__namespace.Vector3();
-    var SQRT_2_OVER_2 = Math.sqrt(2) / 2;
-    var QUAT_XY_CW90 = new THREE42__namespace.Quaternion(0, 0, -SQRT_2_OVER_2, SQRT_2_OVER_2);
-    var VEC3_POSITIVE_Y = new THREE42__namespace.Vector3(0, 1, 0);
-    var VRMLookAtHelper = class extends THREE42__namespace.Group {
+    var _quatA4 = new THREE14__namespace.Quaternion();
+    var _quatB = new THREE14__namespace.Quaternion();
+    var _v3A4 = new THREE14__namespace.Vector3();
+    var _v3B2 = new THREE14__namespace.Vector3();
+    var SQRT_2_OVER_2$1 = Math.sqrt(2) / 2;
+    var QUAT_XY_CW90 = new THREE14__namespace.Quaternion(0, 0, -SQRT_2_OVER_2$1, SQRT_2_OVER_2$1);
+    var VEC3_POSITIVE_Y = new THREE14__namespace.Vector3(0, 1, 0);
+    var VRMLookAtHelper = class extends THREE14__namespace.Group {
       constructor(lookAt) {
         super();
         this.matrixAutoUpdate = false;
@@ -7392,40 +7174,40 @@
         {
           const geometry = new FanBufferGeometry();
           geometry.radius = 0.5;
-          const material = new THREE42__namespace.MeshBasicMaterial({
+          const material = new THREE14__namespace.MeshBasicMaterial({
             color: 65280,
             transparent: true,
             opacity: 0.5,
-            side: THREE42__namespace.DoubleSide,
+            side: THREE14__namespace.DoubleSide,
             depthTest: false,
             depthWrite: false
           });
-          this._meshPitch = new THREE42__namespace.Mesh(geometry, material);
+          this._meshPitch = new THREE14__namespace.Mesh(geometry, material);
           this.add(this._meshPitch);
         }
         {
           const geometry = new FanBufferGeometry();
           geometry.radius = 0.5;
-          const material = new THREE42__namespace.MeshBasicMaterial({
+          const material = new THREE14__namespace.MeshBasicMaterial({
             color: 16711680,
             transparent: true,
             opacity: 0.5,
-            side: THREE42__namespace.DoubleSide,
+            side: THREE14__namespace.DoubleSide,
             depthTest: false,
             depthWrite: false
           });
-          this._meshYaw = new THREE42__namespace.Mesh(geometry, material);
+          this._meshYaw = new THREE14__namespace.Mesh(geometry, material);
           this.add(this._meshYaw);
         }
         {
           const geometry = new LineAndSphereBufferGeometry();
           geometry.radius = 0.1;
-          const material = new THREE42__namespace.LineBasicMaterial({
+          const material = new THREE14__namespace.LineBasicMaterial({
             color: 16777215,
             depthTest: false,
             depthWrite: false
           });
-          this._lineTarget = new THREE42__namespace.LineSegments(geometry, material);
+          this._lineTarget = new THREE14__namespace.LineSegments(geometry, material);
           this._lineTarget.frustumCulled = false;
           this.add(this._lineTarget);
         }
@@ -7439,10 +7221,10 @@
         this._lineTarget.material.dispose();
       }
       updateMatrixWorld(force) {
-        const yaw = THREE42__namespace.MathUtils.DEG2RAD * this.vrmLookAt.yaw;
+        const yaw = THREE14__namespace.MathUtils.DEG2RAD * this.vrmLookAt.yaw;
         this._meshYaw.geometry.theta = yaw;
         this._meshYaw.geometry.update();
-        const pitch = THREE42__namespace.MathUtils.DEG2RAD * this.vrmLookAt.pitch;
+        const pitch = THREE14__namespace.MathUtils.DEG2RAD * this.vrmLookAt.pitch;
         this._meshPitch.geometry.theta = pitch;
         this._meshPitch.geometry.update();
         this.vrmLookAt.getLookAtWorldPosition(_v3A4);
@@ -7464,29 +7246,29 @@
         super.updateMatrixWorld(force);
       }
     };
-    var _position = new THREE42__namespace.Vector3();
-    var _scale = new THREE42__namespace.Vector3();
-    function getWorldQuaternionLite(object, out) {
-      object.matrixWorld.decompose(_position, out, _scale);
+    var _position$1 = new THREE14__namespace.Vector3();
+    var _scale$1 = new THREE14__namespace.Vector3();
+    function getWorldQuaternionLite$1(object, out) {
+      object.matrixWorld.decompose(_position$1, out, _scale$1);
       return out;
     }
-    function calcAzimuthAltitude(vector) {
+    function calcAzimuthAltitude$1(vector) {
       return [Math.atan2(-vector.z, vector.x), Math.atan2(vector.y, Math.sqrt(vector.x * vector.x + vector.z * vector.z))];
     }
-    function sanitizeAngle(angle) {
+    function sanitizeAngle$1(angle) {
       const roundTurn = Math.round(angle / 2 / Math.PI);
       return angle - 2 * Math.PI * roundTurn;
     }
-    var VEC3_POSITIVE_Z = new THREE42__namespace.Vector3(0, 0, 1);
-    var _v3A5 = new THREE42__namespace.Vector3();
-    var _v3B3 = new THREE42__namespace.Vector3();
-    var _v3C = new THREE42__namespace.Vector3();
-    var _quatA5 = new THREE42__namespace.Quaternion();
-    var _quatB2 = new THREE42__namespace.Quaternion();
-    var _quatC = new THREE42__namespace.Quaternion();
-    var _quatD = new THREE42__namespace.Quaternion();
-    var _eulerA = new THREE42__namespace.Euler();
-    var _VRMLookAt = class _VRMLookAt2 {
+    var VEC3_POSITIVE_Z$1 = new THREE14__namespace.Vector3(0, 0, 1);
+    var _v3A5$1 = new THREE14__namespace.Vector3();
+    var _v3B3$1 = new THREE14__namespace.Vector3();
+    var _v3C$1 = new THREE14__namespace.Vector3();
+    var _quatA5$1 = new THREE14__namespace.Quaternion();
+    var _quatB2$1 = new THREE14__namespace.Quaternion();
+    var _quatC$1 = new THREE14__namespace.Quaternion();
+    var _quatD$1 = new THREE14__namespace.Quaternion();
+    var _eulerA$1 = new THREE14__namespace.Euler();
+    var _VRMLookAt$1 = class _VRMLookAt2 {
       /**
        * Create a new {@link VRMLookAt}.
        *
@@ -7494,15 +7276,15 @@
        * @param applier A {@link VRMLookAtApplier}
        */
       constructor(humanoid, applier) {
-        this.offsetFromHeadBone = new THREE42__namespace.Vector3();
+        this.offsetFromHeadBone = new THREE14__namespace.Vector3();
         this.autoUpdate = true;
-        this.faceFront = new THREE42__namespace.Vector3(0, 0, 1);
+        this.faceFront = new THREE14__namespace.Vector3(0, 0, 1);
         this.humanoid = humanoid;
         this.applier = applier;
         this._yaw = 0;
         this._pitch = 0;
         this._needsUpdate = true;
-        this._restHeadWorldQuaternion = this.getLookAtWorldQuaternion(new THREE42__namespace.Quaternion());
+        this._restHeadWorldQuaternion = this.getLookAtWorldQuaternion(new THREE14__namespace.Quaternion());
       }
       /**
        * Its current angle around Y axis, in degree.
@@ -7535,7 +7317,7 @@
        */
       get euler() {
         console.warn("VRMLookAt: euler is deprecated. use getEuler() instead.");
-        return this.getEuler(new THREE42__namespace.Euler());
+        return this.getEuler(new THREE14__namespace.Euler());
       }
       /**
        * Get its yaw-pitch angles as an `Euler`.
@@ -7544,7 +7326,7 @@
        * @param target The target euler
        */
       getEuler(target) {
-        return target.set(THREE42__namespace.MathUtils.DEG2RAD * this._pitch, THREE42__namespace.MathUtils.DEG2RAD * this._yaw, 0, "YXZ");
+        return target.set(THREE14__namespace.MathUtils.DEG2RAD * this._pitch, THREE14__namespace.MathUtils.DEG2RAD * this._yaw, 0, "YXZ");
       }
       /**
        * Copy the given {@link VRMLookAt} into this one.
@@ -7597,7 +7379,7 @@
        */
       getLookAtWorldQuaternion(target) {
         const head = this.humanoid.getRawBoneNode("head");
-        return getWorldQuaternionLite(head, target);
+        return getWorldQuaternionLite$1(head, target);
       }
       /**
        * Get a quaternion that rotates the +Z unit vector of the humanoid Head to the {@link faceFront} direction.
@@ -7605,12 +7387,12 @@
        * @param target A target `THREE.Quaternion`
        */
       getFaceFrontQuaternion(target) {
-        if (this.faceFront.distanceToSquared(VEC3_POSITIVE_Z) < 0.01) {
+        if (this.faceFront.distanceToSquared(VEC3_POSITIVE_Z$1) < 0.01) {
           return target.copy(this._restHeadWorldQuaternion).invert();
         }
-        const [faceFrontAzimuth, faceFrontAltitude] = calcAzimuthAltitude(this.faceFront);
-        _eulerA.set(0, 0.5 * Math.PI + faceFrontAzimuth, faceFrontAltitude, "YZX");
-        return target.setFromEuler(_eulerA).premultiply(_quatD.copy(this._restHeadWorldQuaternion).invert());
+        const [faceFrontAzimuth, faceFrontAltitude] = calcAzimuthAltitude$1(this.faceFront);
+        _eulerA$1.set(0, 0.5 * Math.PI + faceFrontAzimuth, faceFrontAltitude, "YZX");
+        return target.setFromEuler(_eulerA$1).premultiply(_quatD$1.copy(this._restHeadWorldQuaternion).invert());
       }
       /**
        * Get its LookAt direction in world coordinate.
@@ -7618,9 +7400,9 @@
        * @param target A target `THREE.Vector3`
        */
       getLookAtWorldDirection(target) {
-        this.getLookAtWorldQuaternion(_quatB2);
-        this.getFaceFrontQuaternion(_quatC);
-        return target.copy(VEC3_POSITIVE_Z).applyQuaternion(_quatB2).applyQuaternion(_quatC).applyEuler(this.getEuler(_eulerA));
+        this.getLookAtWorldQuaternion(_quatB2$1);
+        this.getFaceFrontQuaternion(_quatC$1);
+        return target.copy(VEC3_POSITIVE_Z$1).applyQuaternion(_quatB2$1).applyQuaternion(_quatC$1).applyEuler(this.getEuler(_eulerA$1));
       }
       /**
        * Set its lookAt target position.
@@ -7632,15 +7414,15 @@
        * @param position A target position, in world space
        */
       lookAt(position) {
-        const headRotDiffInv = _quatA5.copy(this._restHeadWorldQuaternion).multiply(quatInvertCompat(this.getLookAtWorldQuaternion(_quatB2)));
-        const headPos = this.getLookAtWorldPosition(_v3B3);
-        const lookAtDir = _v3C.copy(position).sub(headPos).applyQuaternion(headRotDiffInv).normalize();
-        const [azimuthFrom, altitudeFrom] = calcAzimuthAltitude(this.faceFront);
-        const [azimuthTo, altitudeTo] = calcAzimuthAltitude(lookAtDir);
-        const yaw = sanitizeAngle(azimuthTo - azimuthFrom);
-        const pitch = sanitizeAngle(altitudeFrom - altitudeTo);
-        this._yaw = THREE42__namespace.MathUtils.RAD2DEG * yaw;
-        this._pitch = THREE42__namespace.MathUtils.RAD2DEG * pitch;
+        const headRotDiffInv = _quatA5$1.copy(this._restHeadWorldQuaternion).multiply(quatInvertCompat$1(this.getLookAtWorldQuaternion(_quatB2$1)));
+        const headPos = this.getLookAtWorldPosition(_v3B3$1);
+        const lookAtDir = _v3C$1.copy(position).sub(headPos).applyQuaternion(headRotDiffInv).normalize();
+        const [azimuthFrom, altitudeFrom] = calcAzimuthAltitude$1(this.faceFront);
+        const [azimuthTo, altitudeTo] = calcAzimuthAltitude$1(lookAtDir);
+        const yaw = sanitizeAngle$1(azimuthTo - azimuthFrom);
+        const pitch = sanitizeAngle$1(altitudeFrom - altitudeTo);
+        this._yaw = THREE14__namespace.MathUtils.RAD2DEG * yaw;
+        this._pitch = THREE14__namespace.MathUtils.RAD2DEG * pitch;
         this._needsUpdate = true;
       }
       /**
@@ -7651,7 +7433,7 @@
        */
       update(delta) {
         if (this.target != null && this.autoUpdate) {
-          this.lookAt(this.target.getWorldPosition(_v3A5));
+          this.lookAt(this.target.getWorldPosition(_v3A5$1));
         }
         if (this._needsUpdate) {
           this._needsUpdate = false;
@@ -7659,12 +7441,12 @@
         }
       }
     };
-    _VRMLookAt.EULER_ORDER = "YXZ";
-    var VRMLookAt = _VRMLookAt;
-    var VEC3_POSITIVE_Z2 = new THREE42__namespace.Vector3(0, 0, 1);
-    var _quatA6 = new THREE42__namespace.Quaternion();
-    var _quatB3 = new THREE42__namespace.Quaternion();
-    var _eulerA2 = new THREE42__namespace.Euler(0, 0, 0, "YXZ");
+    _VRMLookAt$1.EULER_ORDER = "YXZ";
+    var VRMLookAt$1 = _VRMLookAt$1;
+    var VEC3_POSITIVE_Z2 = new THREE14__namespace.Vector3(0, 0, 1);
+    var _quatA6 = new THREE14__namespace.Quaternion();
+    var _quatB3 = new THREE14__namespace.Quaternion();
+    var _eulerA2 = new THREE14__namespace.Euler(0, 0, 0, "YXZ");
     var VRMLookAtBoneApplier = class {
       /**
        * Create a new {@link VRMLookAtBoneApplier}.
@@ -7681,20 +7463,20 @@
         this.rangeMapHorizontalOuter = rangeMapHorizontalOuter;
         this.rangeMapVerticalDown = rangeMapVerticalDown;
         this.rangeMapVerticalUp = rangeMapVerticalUp;
-        this.faceFront = new THREE42__namespace.Vector3(0, 0, 1);
-        this._restQuatLeftEye = new THREE42__namespace.Quaternion();
-        this._restQuatRightEye = new THREE42__namespace.Quaternion();
-        this._restLeftEyeParentWorldQuat = new THREE42__namespace.Quaternion();
-        this._restRightEyeParentWorldQuat = new THREE42__namespace.Quaternion();
+        this.faceFront = new THREE14__namespace.Vector3(0, 0, 1);
+        this._restQuatLeftEye = new THREE14__namespace.Quaternion();
+        this._restQuatRightEye = new THREE14__namespace.Quaternion();
+        this._restLeftEyeParentWorldQuat = new THREE14__namespace.Quaternion();
+        this._restRightEyeParentWorldQuat = new THREE14__namespace.Quaternion();
         const leftEye = this.humanoid.getRawBoneNode("leftEye");
         const rightEye = this.humanoid.getRawBoneNode("rightEye");
         if (leftEye) {
           this._restQuatLeftEye.copy(leftEye.quaternion);
-          getWorldQuaternionLite(leftEye.parent, this._restLeftEyeParentWorldQuat);
+          getWorldQuaternionLite$1(leftEye.parent, this._restLeftEyeParentWorldQuat);
         }
         if (rightEye) {
           this._restQuatRightEye.copy(rightEye.quaternion);
-          getWorldQuaternionLite(rightEye.parent, this._restRightEyeParentWorldQuat);
+          getWorldQuaternionLite$1(rightEye.parent, this._restRightEyeParentWorldQuat);
         }
       }
       /**
@@ -7710,14 +7492,14 @@
         const rightEyeNormalized = this.humanoid.getNormalizedBoneNode("rightEye");
         if (leftEye) {
           if (pitch < 0) {
-            _eulerA2.x = -THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalDown.map(-pitch);
+            _eulerA2.x = -THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalDown.map(-pitch);
           } else {
-            _eulerA2.x = THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalUp.map(pitch);
+            _eulerA2.x = THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalUp.map(pitch);
           }
           if (yaw < 0) {
-            _eulerA2.y = -THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalInner.map(-yaw);
+            _eulerA2.y = -THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalInner.map(-yaw);
           } else {
-            _eulerA2.y = THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalOuter.map(yaw);
+            _eulerA2.y = THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalOuter.map(yaw);
           }
           _quatA6.setFromEuler(_eulerA2);
           this._getWorldFaceFrontQuat(_quatB3);
@@ -7727,14 +7509,14 @@
         }
         if (rightEye) {
           if (pitch < 0) {
-            _eulerA2.x = -THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalDown.map(-pitch);
+            _eulerA2.x = -THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalDown.map(-pitch);
           } else {
-            _eulerA2.x = THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalUp.map(pitch);
+            _eulerA2.x = THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapVerticalUp.map(pitch);
           }
           if (yaw < 0) {
-            _eulerA2.y = -THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalOuter.map(-yaw);
+            _eulerA2.y = -THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalOuter.map(-yaw);
           } else {
-            _eulerA2.y = THREE42__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalInner.map(yaw);
+            _eulerA2.y = THREE14__namespace.MathUtils.DEG2RAD * this.rangeMapHorizontalInner.map(yaw);
           }
           _quatA6.setFromEuler(_eulerA2);
           this._getWorldFaceFrontQuat(_quatB3);
@@ -7748,8 +7530,8 @@
        */
       lookAt(euler) {
         console.warn("VRMLookAtBoneApplier: lookAt() is deprecated. use apply() instead.");
-        const yaw = THREE42__namespace.MathUtils.RAD2DEG * euler.y;
-        const pitch = THREE42__namespace.MathUtils.RAD2DEG * euler.x;
+        const yaw = THREE14__namespace.MathUtils.RAD2DEG * euler.y;
+        const pitch = THREE14__namespace.MathUtils.RAD2DEG * euler.x;
         this.applyYawPitch(yaw, pitch);
       }
       /**
@@ -7761,7 +7543,7 @@
         if (this.faceFront.distanceToSquared(VEC3_POSITIVE_Z2) < 0.01) {
           return target.identity();
         }
-        const [faceFrontAzimuth, faceFrontAltitude] = calcAzimuthAltitude(this.faceFront);
+        const [faceFrontAzimuth, faceFrontAltitude] = calcAzimuthAltitude$1(this.faceFront);
         _eulerA2.set(0, 0.5 * Math.PI + faceFrontAzimuth, faceFrontAltitude, "YZX");
         return target.setFromEuler(_eulerA2);
       }
@@ -7811,8 +7593,8 @@
        */
       lookAt(euler) {
         console.warn("VRMLookAtBoneApplier: lookAt() is deprecated. use apply() instead.");
-        const yaw = THREE42__namespace.MathUtils.RAD2DEG * euler.y;
-        const pitch = THREE42__namespace.MathUtils.RAD2DEG * euler.x;
+        const yaw = THREE14__namespace.MathUtils.RAD2DEG * euler.y;
+        const pitch = THREE14__namespace.MathUtils.RAD2DEG * euler.x;
         this.applyYawPitch(yaw, pitch);
       }
     };
@@ -7992,7 +7774,7 @@
         return new VRMLookAtRangeMap(xRange, yRange);
       }
       _importLookAt(humanoid, applier) {
-        const lookAt = new VRMLookAt(humanoid, applier);
+        const lookAt = new VRMLookAt$1(humanoid, applier);
         if (this.helperRoot) {
           const helper = new VRMLookAtHelper(lookAt);
           this.helperRoot.add(helper);
@@ -8155,7 +7937,7 @@
             );
             return null;
           }
-          const loader = new THREE42__namespace.ImageLoader();
+          const loader = new THREE14__namespace.ImageLoader();
           return yield loader.loadAsync(resolveURL(sourceURI, this.parser.options.path)).catch((error) => {
             console.error(error);
             console.warn("VRMMetaLoaderPlugin: Failed to load a thumbnail image");
@@ -8275,7 +8057,7 @@
       srgb: 3001
     };
     function setTextureColorSpace(texture, colorSpace) {
-      if (parseInt(THREE42__namespace.REVISION, 10) >= 152) {
+      if (parseInt(THREE14__namespace.REVISION, 10) >= 152) {
         texture.colorSpace = colorSpace;
       } else {
         texture.encoding = colorSpaceEncodingMap[colorSpace];
@@ -8297,7 +8079,7 @@
       }
       assignColor(key, value, convertSRGBToLinear) {
         if (value != null) {
-          const color = new THREE42__namespace.Color().fromArray(value);
+          const color = new THREE14__namespace.Color().fromArray(value);
           if (convertSRGBToLinear) {
             color.convertSRGBToLinear();
           }
@@ -8348,13 +8130,13 @@
       3001: "srgb"
     };
     function getTextureColorSpace(texture) {
-      if (parseInt(THREE42__namespace.REVISION, 10) >= 152) {
+      if (parseInt(THREE14__namespace.REVISION, 10) >= 152) {
         return texture.colorSpace;
       } else {
         return encodingColorSpaceMap[texture.encoding];
       }
     }
-    var MToonMaterial = class extends THREE42__namespace.ShaderMaterial {
+    var MToonMaterial = class extends THREE14__namespace.ShaderMaterial {
       constructor(parameters = {}) {
         var _a;
         super({ vertexShader: mtoon_default, fragmentShader: mtoon_default2 });
@@ -8362,7 +8144,7 @@
         this.uvAnimationScrollYSpeedFactor = 0;
         this.uvAnimationRotationSpeedFactor = 0;
         this.fog = true;
-        this.normalMapType = THREE42__namespace.TangentSpaceNormalMap;
+        this.normalMapType = THREE14__namespace.TangentSpaceNormalMap;
         this._ignoreVertexColor = true;
         this._v0CompatShade = false;
         this._debugMode = MToonMaterialDebugMode.None;
@@ -8375,48 +8157,48 @@
         parameters.fog = true;
         parameters.lights = true;
         parameters.clipping = true;
-        this.uniforms = THREE42__namespace.UniformsUtils.merge([
-          THREE42__namespace.UniformsLib.common,
+        this.uniforms = THREE14__namespace.UniformsUtils.merge([
+          THREE14__namespace.UniformsLib.common,
           // map
-          THREE42__namespace.UniformsLib.normalmap,
+          THREE14__namespace.UniformsLib.normalmap,
           // normalMap
-          THREE42__namespace.UniformsLib.emissivemap,
+          THREE14__namespace.UniformsLib.emissivemap,
           // emissiveMap
-          THREE42__namespace.UniformsLib.fog,
-          THREE42__namespace.UniformsLib.lights,
+          THREE14__namespace.UniformsLib.fog,
+          THREE14__namespace.UniformsLib.lights,
           {
-            litFactor: { value: new THREE42__namespace.Color(1, 1, 1) },
-            mapUvTransform: { value: new THREE42__namespace.Matrix3() },
+            litFactor: { value: new THREE14__namespace.Color(1, 1, 1) },
+            mapUvTransform: { value: new THREE14__namespace.Matrix3() },
             colorAlpha: { value: 1 },
-            normalMapUvTransform: { value: new THREE42__namespace.Matrix3() },
-            shadeColorFactor: { value: new THREE42__namespace.Color(0, 0, 0) },
+            normalMapUvTransform: { value: new THREE14__namespace.Matrix3() },
+            shadeColorFactor: { value: new THREE14__namespace.Color(0, 0, 0) },
             shadeMultiplyTexture: { value: null },
-            shadeMultiplyTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
+            shadeMultiplyTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
             shadingShiftFactor: { value: 0 },
             shadingShiftTexture: { value: null },
-            shadingShiftTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
+            shadingShiftTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
             shadingShiftTextureScale: { value: 1 },
             shadingToonyFactor: { value: 0.9 },
             giEqualizationFactor: { value: 0.9 },
-            matcapFactor: { value: new THREE42__namespace.Color(1, 1, 1) },
+            matcapFactor: { value: new THREE14__namespace.Color(1, 1, 1) },
             matcapTexture: { value: null },
-            matcapTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
-            parametricRimColorFactor: { value: new THREE42__namespace.Color(0, 0, 0) },
+            matcapTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
+            parametricRimColorFactor: { value: new THREE14__namespace.Color(0, 0, 0) },
             rimMultiplyTexture: { value: null },
-            rimMultiplyTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
+            rimMultiplyTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
             rimLightingMixFactor: { value: 1 },
             parametricRimFresnelPowerFactor: { value: 5 },
             parametricRimLiftFactor: { value: 0 },
-            emissive: { value: new THREE42__namespace.Color(0, 0, 0) },
+            emissive: { value: new THREE14__namespace.Color(0, 0, 0) },
             emissiveIntensity: { value: 1 },
-            emissiveMapUvTransform: { value: new THREE42__namespace.Matrix3() },
+            emissiveMapUvTransform: { value: new THREE14__namespace.Matrix3() },
             outlineWidthMultiplyTexture: { value: null },
-            outlineWidthMultiplyTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
+            outlineWidthMultiplyTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
             outlineWidthFactor: { value: 0 },
-            outlineColorFactor: { value: new THREE42__namespace.Color(0, 0, 0) },
+            outlineColorFactor: { value: new THREE14__namespace.Color(0, 0, 0) },
             outlineLightingMixFactor: { value: 1 },
             uvAnimationMaskTexture: { value: null },
-            uvAnimationMaskTextureUvTransform: { value: new THREE42__namespace.Matrix3() },
+            uvAnimationMaskTextureUvTransform: { value: new THREE14__namespace.Matrix3() },
             uvAnimationScrollXOffset: { value: 0 },
             uvAnimationScrollYOffset: { value: 0 },
             uvAnimationRotationPhase: { value: 0 }
@@ -8432,7 +8214,7 @@
           this.rimMultiplyTexture ? `rimMultiplyTextureColorSpace:${getTextureColorSpace(this.rimMultiplyTexture)}` : ""
         ].join(",");
         this.onBeforeCompile = (shader) => {
-          const threeRevision = parseInt(THREE42__namespace.REVISION, 10);
+          const threeRevision = parseInt(THREE14__namespace.REVISION, 10);
           const defines = Object.entries(__spreadValues(__spreadValues({}, this._generateDefines()), this.defines)).filter(([token, macro]) => !!macro).map(([token, macro]) => `#define ${token} ${macro}`).join("\n") + "\n";
           shader.vertexShader = defines + shader.vertexShader;
           shader.fragmentShader = defines + shader.fragmentShader;
@@ -8755,7 +8537,7 @@
        * Returns a map object of preprocessor token and macro of the shader program.
        */
       _generateDefines() {
-        const threeRevision = parseInt(THREE42__namespace.REVISION, 10);
+        const threeRevision = parseInt(THREE14__namespace.REVISION, 10);
         const useUvInVert = this.outlineWidthMultiplyTexture !== null;
         const useUvInFrag = this.map !== null || this.normalMap !== null || this.emissiveMap !== null || this.shadeMultiplyTexture !== null || this.shadingShiftTexture !== null || this.rimMultiplyTexture !== null || this.uvAnimationMaskTexture !== null;
         return {
@@ -8970,7 +8752,7 @@
        */
       _generateOutline(mesh) {
         const surfaceMaterial = mesh.material;
-        if (!(surfaceMaterial instanceof THREE42__namespace.Material)) {
+        if (!(surfaceMaterial instanceof THREE14__namespace.Material)) {
           return;
         }
         if (!this._shouldGenerateOutline(surfaceMaterial)) {
@@ -8980,7 +8762,7 @@
         const outlineMaterial = surfaceMaterial.clone();
         outlineMaterial.name += " (Outline)";
         outlineMaterial.isOutline = true;
-        outlineMaterial.side = THREE42__namespace.BackSide;
+        outlineMaterial.side = THREE14__namespace.BackSide;
         mesh.material.push(outlineMaterial);
         const geometry = mesh.geometry;
         const primitiveVertices = geometry.index ? geometry.index.count : geometry.attributes.position.count / 3;
@@ -9203,7 +8985,7 @@
         } : void 0;
         let shadingShiftFactor = (_w = (_v = materialProperties.floatProperties) == null ? void 0 : _v["_ShadeShift"]) != null ? _w : 0;
         let shadingToonyFactor = (_y = (_x = materialProperties.floatProperties) == null ? void 0 : _x["_ShadeToony"]) != null ? _y : 0.9;
-        shadingToonyFactor = THREE42__namespace.MathUtils.lerp(shadingToonyFactor, 1, 0.5 + 0.5 * shadingShiftFactor);
+        shadingToonyFactor = THREE14__namespace.MathUtils.lerp(shadingToonyFactor, 1, 0.5 + 0.5 * shadingShiftFactor);
         shadingShiftFactor = -shadingShiftFactor - (1 - shadingToonyFactor);
         const giIntensityFactor = (_A = (_z = materialProperties.floatProperties) == null ? void 0 : _z["_IndirectLightIntensity"]) != null ? _A : 0.1;
         const giEqualizationFactor = giIntensityFactor ? 1 - giIntensityFactor : void 0;
@@ -9427,30 +9209,30 @@
         step((generator = generator.apply(__this, __arguments)).next());
       });
     };
-    var _v3A6 = new THREE42__namespace.Vector3();
-    var VRMNodeConstraintHelper = class extends THREE42__namespace.Group {
+    var _v3A6$1 = new THREE14__namespace.Vector3();
+    var VRMNodeConstraintHelper = class extends THREE14__namespace.Group {
       constructor(constraint) {
         super();
-        this._attrPosition = new THREE42__namespace.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0]), 3);
-        this._attrPosition.setUsage(THREE42__namespace.DynamicDrawUsage);
-        const geometry = new THREE42__namespace.BufferGeometry();
+        this._attrPosition = new THREE14__namespace.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0]), 3);
+        this._attrPosition.setUsage(THREE14__namespace.DynamicDrawUsage);
+        const geometry = new THREE14__namespace.BufferGeometry();
         geometry.setAttribute("position", this._attrPosition);
-        const material = new THREE42__namespace.LineBasicMaterial({
+        const material = new THREE14__namespace.LineBasicMaterial({
           color: 16711935,
           depthTest: false,
           depthWrite: false
         });
-        this._line = new THREE42__namespace.Line(geometry, material);
+        this._line = new THREE14__namespace.Line(geometry, material);
         this.add(this._line);
         this.constraint = constraint;
       }
       updateMatrixWorld(force) {
-        _v3A6.setFromMatrixPosition(this.constraint.destination.matrixWorld);
-        this._attrPosition.setXYZ(0, _v3A6.x, _v3A6.y, _v3A6.z);
+        _v3A6$1.setFromMatrixPosition(this.constraint.destination.matrixWorld);
+        this._attrPosition.setXYZ(0, _v3A6$1.x, _v3A6$1.y, _v3A6$1.z);
         if (this.constraint.source) {
-          _v3A6.setFromMatrixPosition(this.constraint.source.matrixWorld);
+          _v3A6$1.setFromMatrixPosition(this.constraint.source.matrixWorld);
         }
-        this._attrPosition.setXYZ(1, _v3A6.x, _v3A6.y, _v3A6.z);
+        this._attrPosition.setXYZ(1, _v3A6$1.x, _v3A6$1.y, _v3A6$1.z);
         this._attrPosition.needsUpdate = true;
         super.updateMatrixWorld(force);
       }
@@ -9458,8 +9240,8 @@
     function decomposePosition(matrix, target) {
       return target.set(matrix.elements[12], matrix.elements[13], matrix.elements[14]);
     }
-    var _v3A22 = new THREE42__namespace.Vector3();
-    var _v3B4 = new THREE42__namespace.Vector3();
+    var _v3A22 = new THREE14__namespace.Vector3();
+    var _v3B4 = new THREE14__namespace.Vector3();
     function decomposeRotation(matrix, target) {
       matrix.decompose(_v3A22, target, _v3B4);
       return target;
@@ -9483,12 +9265,12 @@
         this.weight = 1;
       }
     };
-    var _v3A32 = new THREE42__namespace.Vector3();
-    var _v3B22 = new THREE42__namespace.Vector3();
-    var _v3C2 = new THREE42__namespace.Vector3();
-    var _quatA7 = new THREE42__namespace.Quaternion();
-    var _quatB4 = new THREE42__namespace.Quaternion();
-    var _quatC2 = new THREE42__namespace.Quaternion();
+    var _v3A32 = new THREE14__namespace.Vector3();
+    var _v3B22 = new THREE14__namespace.Vector3();
+    var _v3C2 = new THREE14__namespace.Vector3();
+    var _quatA7$1 = new THREE14__namespace.Quaternion();
+    var _quatB4$1 = new THREE14__namespace.Quaternion();
+    var _quatC2$1 = new THREE14__namespace.Quaternion();
     var VRMAimConstraint = class extends VRMNodeConstraint {
       /**
        * The aim axis of the constraint.
@@ -9517,8 +9299,8 @@
       constructor(destination, source) {
         super(destination, source);
         this._aimAxis = "PositiveX";
-        this._v3AimAxis = new THREE42__namespace.Vector3(1, 0, 0);
-        this._dstRestQuat = new THREE42__namespace.Quaternion();
+        this._v3AimAxis = new THREE14__namespace.Vector3(1, 0, 0);
+        this._dstRestQuat = new THREE14__namespace.Quaternion();
       }
       setInitState() {
         this._dstRestQuat.copy(this.destination.quaternion);
@@ -9526,15 +9308,15 @@
       update() {
         this.destination.updateWorldMatrix(true, false);
         this.source.updateWorldMatrix(true, false);
-        const dstParentWorldQuat = _quatA7.identity();
-        const invDstParentWorldQuat = _quatB4.identity();
+        const dstParentWorldQuat = _quatA7$1.identity();
+        const invDstParentWorldQuat = _quatB4$1.identity();
         if (this.destination.parent) {
           decomposeRotation(this.destination.parent.matrixWorld, dstParentWorldQuat);
           quatInvertCompat2(invDstParentWorldQuat.copy(dstParentWorldQuat));
         }
         const a0 = _v3A32.copy(this._v3AimAxis).applyQuaternion(this._dstRestQuat).applyQuaternion(dstParentWorldQuat);
         const a1 = decomposePosition(this.source.matrixWorld, _v3B22).sub(decomposePosition(this.destination.matrixWorld, _v3C2)).normalize();
-        const targetQuat = _quatC2.setFromUnitVectors(a0, a1).premultiply(invDstParentWorldQuat).multiply(dstParentWorldQuat).multiply(this._dstRestQuat);
+        const targetQuat = _quatC2$1.setFromUnitVectors(a0, a1).premultiply(invDstParentWorldQuat).multiply(dstParentWorldQuat).multiply(this._dstRestQuat);
         this.destination.quaternion.copy(this._dstRestQuat).slerp(targetQuat, this.weight);
       }
     };
@@ -9619,16 +9401,16 @@
         constraintsDone.add(constraint);
       }
     };
-    var _quatA22 = new THREE42__namespace.Quaternion();
-    var _quatB22 = new THREE42__namespace.Quaternion();
+    var _quatA22 = new THREE14__namespace.Quaternion();
+    var _quatB22 = new THREE14__namespace.Quaternion();
     var VRMRotationConstraint = class extends VRMNodeConstraint {
       get dependencies() {
         return /* @__PURE__ */ new Set([this.source]);
       }
       constructor(destination, source) {
         super(destination, source);
-        this._dstRestQuat = new THREE42__namespace.Quaternion();
-        this._invSrcRestQuat = new THREE42__namespace.Quaternion();
+        this._dstRestQuat = new THREE14__namespace.Quaternion();
+        this._invSrcRestQuat = new THREE14__namespace.Quaternion();
       }
       setInitState() {
         this._dstRestQuat.copy(this.destination.quaternion);
@@ -9640,9 +9422,9 @@
         this.destination.quaternion.copy(this._dstRestQuat).slerp(targetQuat, this.weight);
       }
     };
-    var _v3A42 = new THREE42__namespace.Vector3();
-    var _quatA32 = new THREE42__namespace.Quaternion();
-    var _quatB32 = new THREE42__namespace.Quaternion();
+    var _v3A42 = new THREE14__namespace.Vector3();
+    var _quatA32 = new THREE14__namespace.Quaternion();
+    var _quatB32 = new THREE14__namespace.Quaternion();
     var VRMRollConstraint = class extends VRMNodeConstraint {
       /**
        * The roll axis of the constraint.
@@ -9663,10 +9445,10 @@
       constructor(destination, source) {
         super(destination, source);
         this._rollAxis = "X";
-        this._v3RollAxis = new THREE42__namespace.Vector3(1, 0, 0);
-        this._dstRestQuat = new THREE42__namespace.Quaternion();
-        this._invDstRestQuat = new THREE42__namespace.Quaternion();
-        this._invSrcRestQuatMulDstRestQuat = new THREE42__namespace.Quaternion();
+        this._v3RollAxis = new THREE14__namespace.Vector3(1, 0, 0);
+        this._dstRestQuat = new THREE14__namespace.Quaternion();
+        this._invDstRestQuat = new THREE14__namespace.Quaternion();
+        this._invSrcRestQuatMulDstRestQuat = new THREE14__namespace.Quaternion();
       }
       setInitState() {
         this._dstRestQuat.copy(this.destination.quaternion);
@@ -9812,8 +9594,8 @@
     };
     var VRMSpringBoneColliderShape = class {
     };
-    var _v3A7 = new THREE42__namespace.Vector3();
-    var _v3B5 = new THREE42__namespace.Vector3();
+    var _v3A7 = new THREE14__namespace.Vector3();
+    var _v3B5 = new THREE14__namespace.Vector3();
     var VRMSpringBoneColliderShapeCapsule = class extends VRMSpringBoneColliderShape {
       get type() {
         return "capsule";
@@ -9821,8 +9603,8 @@
       constructor(params) {
         var _a, _b, _c, _d;
         super();
-        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE42__namespace.Vector3(0, 0, 0);
-        this.tail = (_b = params == null ? void 0 : params.tail) != null ? _b : new THREE42__namespace.Vector3(0, 0, 0);
+        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE14__namespace.Vector3(0, 0, 0);
+        this.tail = (_b = params == null ? void 0 : params.tail) != null ? _b : new THREE14__namespace.Vector3(0, 0, 0);
         this.radius = (_c = params == null ? void 0 : params.radius) != null ? _c : 0;
         this.inside = (_d = params == null ? void 0 : params.inside) != null ? _d : false;
       }
@@ -9850,8 +9632,8 @@
         return distance;
       }
     };
-    var _v3A23 = new THREE42__namespace.Vector3();
-    var _mat3A = new THREE42__namespace.Matrix3();
+    var _v3A23 = new THREE14__namespace.Vector3();
+    var _mat3A = new THREE14__namespace.Matrix3();
     var VRMSpringBoneColliderShapePlane = class extends VRMSpringBoneColliderShape {
       get type() {
         return "plane";
@@ -9859,8 +9641,8 @@
       constructor(params) {
         var _a, _b;
         super();
-        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE42__namespace.Vector3(0, 0, 0);
-        this.normal = (_b = params == null ? void 0 : params.normal) != null ? _b : new THREE42__namespace.Vector3(0, 0, 1);
+        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE14__namespace.Vector3(0, 0, 0);
+        this.normal = (_b = params == null ? void 0 : params.normal) != null ? _b : new THREE14__namespace.Vector3(0, 0, 1);
       }
       calculateCollision(colliderMatrix, objectPosition, objectRadius, target) {
         target.setFromMatrixPosition(colliderMatrix);
@@ -9872,7 +9654,7 @@
         return distance;
       }
     };
-    var _v3A33 = new THREE42__namespace.Vector3();
+    var _v3A33 = new THREE14__namespace.Vector3();
     var VRMSpringBoneColliderShapeSphere = class extends VRMSpringBoneColliderShape {
       get type() {
         return "sphere";
@@ -9880,7 +9662,7 @@
       constructor(params) {
         var _a, _b, _c;
         super();
-        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE42__namespace.Vector3(0, 0, 0);
+        this.offset = (_a = params == null ? void 0 : params.offset) != null ? _a : new THREE14__namespace.Vector3(0, 0, 0);
         this.radius = (_b = params == null ? void 0 : params.radius) != null ? _b : 0;
         this.inside = (_c = params == null ? void 0 : params.inside) != null ? _c : false;
       }
@@ -9897,18 +9679,18 @@
         return distance;
       }
     };
-    var _v3A43 = new THREE42__namespace.Vector3();
-    var ColliderShapeCapsuleBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var _v3A43 = new THREE14__namespace.Vector3();
+    var ColliderShapeCapsuleBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor(shape) {
         super();
         this.worldScale = 1;
         this._currentRadius = 0;
-        this._currentOffset = new THREE42__namespace.Vector3();
-        this._currentTail = new THREE42__namespace.Vector3();
+        this._currentOffset = new THREE14__namespace.Vector3();
+        this._currentTail = new THREE14__namespace.Vector3();
         this._shape = shape;
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(396), 3);
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(396), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(264), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(264), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -9970,16 +9752,16 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var ColliderShapePlaneBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var ColliderShapePlaneBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor(shape) {
         super();
         this.worldScale = 1;
-        this._currentOffset = new THREE42__namespace.Vector3();
-        this._currentNormal = new THREE42__namespace.Vector3();
+        this._currentOffset = new THREE14__namespace.Vector3();
+        this._currentNormal = new THREE14__namespace.Vector3();
         this._shape = shape;
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(6 * 3), 3);
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(6 * 3), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(10), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(10), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -10018,16 +9800,16 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var ColliderShapeSphereBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var ColliderShapeSphereBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor(shape) {
         super();
         this.worldScale = 1;
         this._currentRadius = 0;
-        this._currentOffset = new THREE42__namespace.Vector3();
+        this._currentOffset = new THREE14__namespace.Vector3();
         this._shape = shape;
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(32 * 3 * 3), 3);
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(32 * 3 * 3), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(64 * 3), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(64 * 3), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -10068,8 +9850,8 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var _v3A52 = new THREE42__namespace.Vector3();
-    var VRMSpringBoneColliderHelper = class extends THREE42__namespace.Group {
+    var _v3A52 = new THREE14__namespace.Vector3();
+    var VRMSpringBoneColliderHelper = class extends THREE14__namespace.Group {
       constructor(collider) {
         super();
         this.matrixAutoUpdate = false;
@@ -10083,12 +9865,12 @@
         } else {
           throw new Error("VRMSpringBoneColliderHelper: Unknown collider shape type detected");
         }
-        const material = new THREE42__namespace.LineBasicMaterial({
+        const material = new THREE14__namespace.LineBasicMaterial({
           color: 16711935,
           depthTest: false,
           depthWrite: false
         });
-        this._line = new THREE42__namespace.LineSegments(this._geometry, material);
+        this._line = new THREE14__namespace.LineSegments(this._geometry, material);
         this.add(this._line);
       }
       dispose() {
@@ -10103,16 +9885,16 @@
         super.updateMatrixWorld(force);
       }
     };
-    var SpringBoneBufferGeometry = class extends THREE42__namespace.BufferGeometry {
+    var SpringBoneBufferGeometry = class extends THREE14__namespace.BufferGeometry {
       constructor(springBone) {
         super();
         this.worldScale = 1;
         this._currentRadius = 0;
-        this._currentTail = new THREE42__namespace.Vector3();
+        this._currentTail = new THREE14__namespace.Vector3();
         this._springBone = springBone;
-        this._attrPos = new THREE42__namespace.BufferAttribute(new Float32Array(294), 3);
+        this._attrPos = new THREE14__namespace.BufferAttribute(new Float32Array(294), 3);
         this.setAttribute("position", this._attrPos);
-        this._attrIndex = new THREE42__namespace.BufferAttribute(new Uint16Array(194), 1);
+        this._attrIndex = new THREE14__namespace.BufferAttribute(new Uint16Array(194), 1);
         this.setIndex(this._attrIndex);
         this._buildIndex();
         this.update();
@@ -10156,19 +9938,19 @@
         this._attrIndex.needsUpdate = true;
       }
     };
-    var _v3A62 = new THREE42__namespace.Vector3();
-    var VRMSpringBoneJointHelper = class extends THREE42__namespace.Group {
+    var _v3A62 = new THREE14__namespace.Vector3();
+    var VRMSpringBoneJointHelper = class extends THREE14__namespace.Group {
       constructor(springBone) {
         super();
         this.matrixAutoUpdate = false;
         this.springBone = springBone;
         this._geometry = new SpringBoneBufferGeometry(this.springBone);
-        const material = new THREE42__namespace.LineBasicMaterial({
+        const material = new THREE14__namespace.LineBasicMaterial({
           color: 16776960,
           depthTest: false,
           depthWrite: false
         });
-        this._line = new THREE42__namespace.LineSegments(this._geometry, material);
+        this._line = new THREE14__namespace.LineSegments(this._geometry, material);
         this.add(this._line);
       }
       dispose() {
@@ -10183,10 +9965,10 @@
         super.updateMatrixWorld(force);
       }
     };
-    var VRMSpringBoneCollider = class extends THREE42__namespace.Object3D {
+    var VRMSpringBoneCollider = class extends THREE14__namespace.Object3D {
       constructor(shape) {
         super();
-        this.colliderMatrix = new THREE42__namespace.Matrix4();
+        this.colliderMatrix = new THREE14__namespace.Matrix4();
         this.shape = shape;
       }
       updateWorldMatrix(updateParents, updateChildren) {
@@ -10203,7 +9985,7 @@
         colliderMatrix.elements[14] = me[2] * offset.x + me[6] * offset.y + me[10] * offset.z + me[14];
       }
     }
-    var _matA = new THREE42__namespace.Matrix4();
+    var _matA = new THREE14__namespace.Matrix4();
     function mat4InvertCompat(target) {
       if (target.invert) {
         target.invert();
@@ -10214,7 +9996,7 @@
     }
     var Matrix4InverseCache = class {
       constructor(matrix) {
-        this._inverseCache = new THREE42__namespace.Matrix4();
+        this._inverseCache = new THREE14__namespace.Matrix4();
         this._shouldUpdateInverse = true;
         this.matrix = matrix;
         const handler = {
@@ -10243,12 +10025,12 @@
         this.matrix.elements = this._originalElements;
       }
     };
-    var IDENTITY_MATRIX4 = new THREE42__namespace.Matrix4();
-    var _v3A72 = new THREE42__namespace.Vector3();
-    var _v3B23 = new THREE42__namespace.Vector3();
-    var _worldSpacePosition = new THREE42__namespace.Vector3();
-    var _nextTail = new THREE42__namespace.Vector3();
-    var _matA2 = new THREE42__namespace.Matrix4();
+    var IDENTITY_MATRIX4 = new THREE14__namespace.Matrix4();
+    var _v3A72 = new THREE14__namespace.Vector3();
+    var _v3B23 = new THREE14__namespace.Vector3();
+    var _worldSpacePosition = new THREE14__namespace.Vector3();
+    var _nextTail = new THREE14__namespace.Vector3();
+    var _matA2 = new THREE14__namespace.Matrix4();
     var VRMSpringBoneJoint = class {
       /**
        * Create a new VRMSpringBone.
@@ -10259,14 +10041,14 @@
        * @param colliderGroups Collider groups that will be collided with this spring bone
        */
       constructor(bone, child, settings = {}, colliderGroups = []) {
-        this._currentTail = new THREE42__namespace.Vector3();
-        this._prevTail = new THREE42__namespace.Vector3();
-        this._boneAxis = new THREE42__namespace.Vector3();
+        this._currentTail = new THREE14__namespace.Vector3();
+        this._prevTail = new THREE14__namespace.Vector3();
+        this._boneAxis = new THREE14__namespace.Vector3();
         this._worldSpaceBoneLength = 0;
         this._center = null;
-        this._initialLocalMatrix = new THREE42__namespace.Matrix4();
-        this._initialLocalRotation = new THREE42__namespace.Quaternion();
-        this._initialLocalChildPosition = new THREE42__namespace.Vector3();
+        this._initialLocalMatrix = new THREE14__namespace.Matrix4();
+        this._initialLocalRotation = new THREE14__namespace.Quaternion();
+        this._initialLocalChildPosition = new THREE14__namespace.Vector3();
         var _a, _b, _c, _d, _e, _f;
         this.bone = bone;
         this.bone.matrixAutoUpdate = false;
@@ -10275,7 +10057,7 @@
           hitRadius: (_a = settings.hitRadius) != null ? _a : 0,
           stiffness: (_b = settings.stiffness) != null ? _b : 1,
           gravityPower: (_c = settings.gravityPower) != null ? _c : 0,
-          gravityDir: (_e = (_d = settings.gravityDir) == null ? void 0 : _d.clone()) != null ? _e : new THREE42__namespace.Vector3(0, -1, 0),
+          gravityDir: (_e = (_d = settings.gravityDir) == null ? void 0 : _d.clone()) != null ? _e : new THREE14__namespace.Vector3(0, -1, 0),
           dragForce: (_f = settings.dragForce) != null ? _f : 0.4
         };
         this.colliderGroups = colliderGroups;
@@ -10708,36 +10490,36 @@
                 const schemaExShape = schemaExCollider.shape;
                 if (schemaExShape.sphere) {
                   return this._importSphereCollider(node, {
-                    offset: new THREE42__namespace.Vector3().fromArray((_b2 = schemaExShape.sphere.offset) != null ? _b2 : [0, 0, 0]),
+                    offset: new THREE14__namespace.Vector3().fromArray((_b2 = schemaExShape.sphere.offset) != null ? _b2 : [0, 0, 0]),
                     radius: (_c2 = schemaExShape.sphere.radius) != null ? _c2 : 0,
                     inside: (_d2 = schemaExShape.sphere.inside) != null ? _d2 : false
                   });
                 } else if (schemaExShape.capsule) {
                   return this._importCapsuleCollider(node, {
-                    offset: new THREE42__namespace.Vector3().fromArray((_e2 = schemaExShape.capsule.offset) != null ? _e2 : [0, 0, 0]),
+                    offset: new THREE14__namespace.Vector3().fromArray((_e2 = schemaExShape.capsule.offset) != null ? _e2 : [0, 0, 0]),
                     radius: (_f = schemaExShape.capsule.radius) != null ? _f : 0,
-                    tail: new THREE42__namespace.Vector3().fromArray((_g = schemaExShape.capsule.tail) != null ? _g : [0, 0, 0]),
+                    tail: new THREE14__namespace.Vector3().fromArray((_g = schemaExShape.capsule.tail) != null ? _g : [0, 0, 0]),
                     inside: (_h = schemaExShape.capsule.inside) != null ? _h : false
                   });
                 } else if (schemaExShape.plane) {
                   return this._importPlaneCollider(node, {
-                    offset: new THREE42__namespace.Vector3().fromArray((_i = schemaExShape.plane.offset) != null ? _i : [0, 0, 0]),
-                    normal: new THREE42__namespace.Vector3().fromArray((_j = schemaExShape.plane.normal) != null ? _j : [0, 0, 1])
+                    offset: new THREE14__namespace.Vector3().fromArray((_i = schemaExShape.plane.offset) != null ? _i : [0, 0, 0]),
+                    normal: new THREE14__namespace.Vector3().fromArray((_j = schemaExShape.plane.normal) != null ? _j : [0, 0, 1])
                   });
                 }
               }
             }
             if (schemaShape.sphere) {
               return this._importSphereCollider(node, {
-                offset: new THREE42__namespace.Vector3().fromArray((_k = schemaShape.sphere.offset) != null ? _k : [0, 0, 0]),
+                offset: new THREE14__namespace.Vector3().fromArray((_k = schemaShape.sphere.offset) != null ? _k : [0, 0, 0]),
                 radius: (_l = schemaShape.sphere.radius) != null ? _l : 0,
                 inside: false
               });
             } else if (schemaShape.capsule) {
               return this._importCapsuleCollider(node, {
-                offset: new THREE42__namespace.Vector3().fromArray((_m = schemaShape.capsule.offset) != null ? _m : [0, 0, 0]),
+                offset: new THREE14__namespace.Vector3().fromArray((_m = schemaShape.capsule.offset) != null ? _m : [0, 0, 0]),
                 radius: (_n = schemaShape.capsule.radius) != null ? _n : 0,
-                tail: new THREE42__namespace.Vector3().fromArray((_o = schemaShape.capsule.tail) != null ? _o : [0, 0, 0]),
+                tail: new THREE14__namespace.Vector3().fromArray((_o = schemaShape.capsule.tail) != null ? _o : [0, 0, 0]),
                 inside: false
               });
             }
@@ -10788,7 +10570,7 @@
                   dragForce: prevSchemaJoint.dragForce,
                   gravityPower: prevSchemaJoint.gravityPower,
                   stiffness: prevSchemaJoint.stiffness,
-                  gravityDir: prevSchemaJoint.gravityDir != null ? new THREE42__namespace.Vector3().fromArray(prevSchemaJoint.gravityDir) : void 0
+                  gravityDir: prevSchemaJoint.gravityDir != null ? new THREE14__namespace.Vector3().fromArray(prevSchemaJoint.gravityDir) : void 0
                 };
                 const joint = this._importJoint(node, child, setting, colliderGroupsForSpring);
                 if (center) {
@@ -10834,7 +10616,7 @@
               }
               const colliders = ((_a2 = schemaColliderGroup.colliders) != null ? _a2 : []).map((schemaCollider, iCollider) => {
                 var _a3, _b2, _c2;
-                const offset = new THREE42__namespace.Vector3(0, 0, 0);
+                const offset = new THREE14__namespace.Vector3(0, 0, 0);
                 if (schemaCollider.offset) {
                   offset.set(
                     (_a3 = schemaCollider.offset.x) != null ? _a3 : 0,
@@ -10866,7 +10648,7 @@
                 );
                 return;
               }
-              const gravityDir = new THREE42__namespace.Vector3();
+              const gravityDir = new THREE14__namespace.Vector3();
               if (schemaBoneGroup.gravityDir) {
                 gravityDir.set(
                   (_a2 = schemaBoneGroup.gravityDir.x) != null ? _a2 : 0,
@@ -10984,13 +10766,13 @@
         this.nodeConstraintPlugin = (_j = options == null ? void 0 : options.nodeConstraintPlugin) != null ? _j : new VRMNodeConstraintLoaderPlugin(parser, { helperRoot });
       }
       beforeRoot() {
-        return __async(this, null, function* () {
+        return __async$1(this, null, function* () {
           yield this.materialsV0CompatPlugin.beforeRoot();
           yield this.mtoonMaterialPlugin.beforeRoot();
         });
       }
       loadMesh(meshIndex) {
-        return __async(this, null, function* () {
+        return __async$1(this, null, function* () {
           return yield this.mtoonMaterialPlugin.loadMesh(meshIndex);
         });
       }
@@ -11002,13 +10784,13 @@
         return null;
       }
       extendMaterialParams(materialIndex, materialParams) {
-        return __async(this, null, function* () {
+        return __async$1(this, null, function* () {
           yield this.materialsHDREmissiveMultiplierPlugin.extendMaterialParams(materialIndex, materialParams);
           yield this.mtoonMaterialPlugin.extendMaterialParams(materialIndex, materialParams);
         });
       }
       afterRoot(gltf) {
-        return __async(this, null, function* () {
+        return __async$1(this, null, function* () {
           yield this.metaPlugin.afterRoot(gltf);
           yield this.humanoidPlugin.afterRoot(gltf);
           yield this.expressionPlugin.afterRoot(gltf);
@@ -11072,7 +10854,7 @@
           newArray[i * 3 + 2] += src.getZ(i) * weight;
         }
       }
-      const newAttribute = new THREE42__namespace.BufferAttribute(newArray, 3);
+      const newAttribute = new THREE14__namespace.BufferAttribute(newArray, 3);
       return newAttribute;
     }
     function combineMorphs(vrm) {
@@ -11161,7 +10943,7 @@
       } else {
         let value = attribute.array[index * attribute.itemSize + component];
         if (attribute.normalized) {
-          value = THREE42__namespace.MathUtils.denormalize(value, attribute.array);
+          value = THREE14__namespace.MathUtils.denormalize(value, attribute.array);
         }
         return value;
       }
@@ -11171,7 +10953,7 @@
         attribute.setComponent(index, component, value);
       } else {
         if (attribute.normalized) {
-          value = THREE42__namespace.MathUtils.normalize(value, attribute.array);
+          value = THREE14__namespace.MathUtils.normalize(value, attribute.array);
         }
         attribute.array[index * attribute.itemSize + component] = value;
       }
@@ -11228,7 +11010,7 @@
         const { boneInverseMap, meshes } = group;
         const newBones = Array.from(boneInverseMap.keys());
         const newBoneInverses = Array.from(boneInverseMap.values());
-        const newSkeleton = new THREE42__namespace.Skeleton(newBones, newBoneInverses);
+        const newSkeleton = new THREE14__namespace.Skeleton(newBones, newBoneInverses);
         const skeletonKey = skeletonDispatcher.getOrCreate(newSkeleton);
         for (const mesh of meshes) {
           const skinIndexAttr = mesh.geometry.getAttribute("skinIndex");
@@ -11245,7 +11027,7 @@
           mesh.geometry.setAttribute("skinIndex", newSkinIndexAttr);
         }
         for (const mesh of meshes) {
-          mesh.bind(newSkeleton, new THREE42__namespace.Matrix4());
+          mesh.bind(newSkeleton, new THREE14__namespace.Matrix4());
         }
       }
     }
@@ -11354,7 +11136,7 @@
     };
     function shallowCloneBufferGeometry(geometry) {
       var _a, _b, _c, _d;
-      const clone = new THREE42__namespace.BufferGeometry();
+      const clone = new THREE14__namespace.BufferGeometry();
       clone.name = geometry.name;
       clone.setIndex(geometry.index);
       for (const [name, attribute] of Object.entries(geometry.attributes)) {
@@ -11471,8 +11253,8 @@
           bones.push(mesh.skeleton.bones[oldIndex]);
           boneInverses.push(mesh.skeleton.boneInverses[oldIndex]);
         }
-        const skeleton = new THREE42__namespace.Skeleton(bones, boneInverses);
-        mesh.bind(skeleton, new THREE42__namespace.Matrix4());
+        const skeleton = new THREE14__namespace.Skeleton(bones, boneInverses);
+        mesh.bind(skeleton, new THREE14__namespace.Matrix4());
       }
     }
     function checkIsVertexUsed(attributes, originalIndex) {
@@ -11521,7 +11303,7 @@
         const index = originalIndexArray[i];
         newIndexArray[i] = originalIndexNewIndexMap[index];
       }
-      newGeometry.setIndex(new THREE42.BufferAttribute(newIndexArray, originalIndex.itemSize, originalIndex.normalized));
+      newGeometry.setIndex(new THREE14.BufferAttribute(newIndexArray, originalIndex.itemSize, originalIndex.normalized));
     }
     function remapAttributeArray(originalArray, newIndexOriginalIndexMap, stride) {
       const ArrayCtor = originalArray.constructor;
@@ -11567,11 +11349,11 @@
           newIndexOriginalIndexMap,
           stride
         );
-        const newInterleavedBuffer = new THREE42__namespace.InterleavedBuffer(newInterleavedArray, stride);
+        const newInterleavedBuffer = new THREE14__namespace.InterleavedBuffer(newInterleavedArray, stride);
         newInterleavedBuffer.setUsage(interleavedBuffer.usage);
         for (const [attributeName, originalAttribute] of attributesInGroup) {
           const { itemSize, offset, normalized } = originalAttribute;
-          const newAttribute = new THREE42__namespace.InterleavedBufferAttribute(newInterleavedBuffer, itemSize, offset, normalized);
+          const newAttribute = new THREE14__namespace.InterleavedBufferAttribute(newInterleavedBuffer, itemSize, offset, normalized);
           newGeometry.setAttribute(attributeName, newAttribute);
         }
       }
@@ -11579,7 +11361,7 @@
         const originalAttributeArray = originalAttribute.array;
         const { itemSize, normalized } = originalAttribute;
         const [newAttributeArray] = remapAttributeArray(originalAttributeArray, newIndexOriginalIndexMap, itemSize);
-        newGeometry.setAttribute(attributeName, new THREE42.BufferAttribute(newAttributeArray, itemSize, normalized));
+        newGeometry.setAttribute(attributeName, new THREE14.BufferAttribute(newAttributeArray, itemSize, normalized));
       }
     }
     function collectMorphAttributeGroups(morphAttributes) {
@@ -11618,11 +11400,11 @@
           stride
         );
         allMorphsAreZero = allMorphsAreZero && isAllZero;
-        const newInterleavedBuffer = new THREE42__namespace.InterleavedBuffer(newInterleavedArray, stride);
+        const newInterleavedBuffer = new THREE14__namespace.InterleavedBuffer(newInterleavedArray, stride);
         newInterleavedBuffer.setUsage(interleavedBuffer.usage);
         for (const [attributeName, morphIndex, attribute] of attributesInGroup) {
           const { itemSize, offset, normalized } = attribute;
-          const newAttribute = new THREE42__namespace.InterleavedBufferAttribute(newInterleavedBuffer, itemSize, offset, normalized);
+          const newAttribute = new THREE14__namespace.InterleavedBufferAttribute(newInterleavedBuffer, itemSize, offset, normalized);
           (_a = newMorphAttributes[attributeName]) != null ? _a : newMorphAttributes[attributeName] = [];
           newMorphAttributes[attributeName][morphIndex] = newAttribute;
         }
@@ -11638,7 +11420,7 @@
         );
         allMorphsAreZero = allMorphsAreZero && isAllZero;
         (_b = newMorphAttributes[attributeName]) != null ? _b : newMorphAttributes[attributeName] = [];
-        newMorphAttributes[attributeName][morphIndex] = new THREE42.BufferAttribute(newAttributeArray, itemSize, normalized);
+        newMorphAttributes[attributeName][morphIndex] = new THREE14.BufferAttribute(newAttributeArray, itemSize, normalized);
       }
       newGeometry.morphAttributes = allMorphsAreZero ? {} : newMorphAttributes;
     }
@@ -11664,7 +11446,7 @@
           return;
         }
         const { originalIndexNewIndexMap, newIndexOriginalIndexMap } = buildIndexMapsFromIsVertexUsed(isVertexUsed);
-        const newGeometry = new THREE42__namespace.BufferGeometry();
+        const newGeometry = new THREE14__namespace.BufferGeometry();
         copyGeometryProperties(geometry, newGeometry);
         geometryMap.set(geometry, newGeometry);
         reorganizeIndexAttribute(newGeometry, originalIndex, originalIndexNewIndexMap);
@@ -11747,162 +11529,52 @@
 
     AFRAME.registerComponent('vrm-model', {
         schema: {
-            src: { type: 'string' },
+            src: { type: 'asset' },
         },
         init() {
+            this.vrm = null;
             this.loader = new GLTFLoader();
             this.loader.register((parser) => new VRMLoaderPlugin(parser));
             if (this.data.src) {
                 this.loadModel(this.data.src);
             }
         },
-        update(oldData) {
-            if (oldData.src !== this.data.src && this.data.src) {
-                this.removeModel();
+        update() {
+            if (this.data.src) {
                 this.loadModel(this.data.src);
             }
         },
+        removeModel() {
+            if (this.vrm) {
+                VRMUtils.deepDispose(this.vrm.scene);
+                this.el.object3D.remove(this.vrm.scene);
+                this.vrm = null;
+            }
+        },
         loadModel(src) {
+            this.removeModel();
             this.loader.load(src, (gltf) => {
                 const vrm = gltf.userData.vrm;
                 if (!vrm) {
-                    console.error('vrm-model: Loaded glTF does not contain a VRM');
+                    console.error('[vrm-model] No VRM data found in', src);
                     return;
                 }
-                this.vrm = vrm;
+                // VRM 0.0 models need Y=180 rotation correction
                 VRMUtils.rotateVRM0(vrm);
-                this.el.setObject3D('vrm', vrm.scene);
-                const system = this.el.sceneEl.systems['vrm'];
-                if (system && system.registerVRM) {
-                    system.registerVRM(vrm);
+                this.vrm = vrm;
+                this.el.object3D.add(vrm.scene);
+                // Emit event for other components
+                this.el.emit('model-loaded', { vrm });
+                // Resize to reasonable scale if needed
+                const box = new THREE14__namespace.Box3().setFromObject(vrm.scene);
+                const size = box.getSize(new THREE14__namespace.Vector3());
+                if (size.y > 3.0 || size.y < 0.3) {
+                    const scale = 1.6 / size.y;
+                    vrm.scene.scale.setScalar(scale);
                 }
-                this.el.emit('model-loaded', { format: 'vrm', model: vrm }, false);
-            }, undefined, (error) => {
-                console.error('vrm-model: Error loading VRM', error);
-                this.el.emit('model-error', { format: 'vrm', src }, false);
+            }, undefined, (err) => {
+                console.error('[vrm-model] Failed to load', src, err);
             });
-        },
-        removeModel() {
-            if (this.vrm) {
-                const system = this.el.sceneEl.systems['vrm'];
-                if (system && system.unregisterVRM) {
-                    system.unregisterVRM(this.vrm);
-                }
-                this.el.removeObject3D('vrm');
-                VRMUtils.deepDispose(this.vrm.scene);
-                this.vrm = undefined;
-            }
-        },
-        remove() {
-            this.removeModel();
-        },
-    });
-
-    AFRAME.registerComponent('vrm-expressions', {
-        schema: {},
-        dependencies: ['vrm-model'],
-        updateSchema(data) {
-            if (typeof data !== 'object' || data === null)
-                return;
-            const newSchema = {};
-            Object.keys(data).forEach((key) => {
-                if (key === '' || key in this.schema)
-                    return;
-                newSchema[key] = { type: 'number', default: 0 };
-            });
-            if (Object.keys(newSchema).length > 0) {
-                this.extendSchema(newSchema);
-            }
-        },
-        init() {
-            this._expressionKeys = [];
-        },
-        update(oldData) {
-            const vrmModel = this.el.components['vrm-model'];
-            const expressionManager = vrmModel?.vrm?.expressionManager;
-            if (!expressionManager)
-                return;
-            const keys = Object.keys(this.data);
-            for (const key of keys) {
-                if (key === '' || !(key in this.schema))
-                    continue;
-                const value = this.data[key];
-                if (oldData[key] !== value) {
-                    expressionManager.setValue(key, value);
-                }
-            }
-        },
-        remove() {
-            const vrmModel = this.el.components['vrm-model'];
-            vrmModel?.vrm?.expressionManager?.resetValues();
-        },
-    });
-
-    AFRAME.registerComponent('vrm-look-at', {
-        schema: {
-            target: { type: 'selector' },
-            type: { type: 'string', default: 'expression' },
-        },
-        dependencies: ['vrm-model'],
-        init() {
-            this._lookAtPosition = new THREE42__namespace.Vector3();
-        },
-        update(oldData) {
-            const vrmModel = this.el.components['vrm-model'];
-            const lookAt = vrmModel?.vrm?.lookAt;
-            if (!lookAt)
-                return;
-            if (oldData.target !== this.data.target) {
-                this._targetEntity = this.data.target;
-            }
-            if (!this._targetEntity) {
-                lookAt.target = null;
-                return;
-            }
-            lookAt.target = this._targetEntity.object3D;
-        },
-        tick() {
-            const vrmModel = this.el.components['vrm-model'];
-            const lookAt = vrmModel?.vrm?.lookAt;
-            if (!lookAt)
-                return;
-            if (this._targetEntity && this._targetEntity.object3D) ;
-        },
-        remove() {
-            const vrmModel = this.el.components['vrm-model'];
-            const lookAt = vrmModel?.vrm?.lookAt;
-            if (lookAt) {
-                lookAt.target = null;
-                lookAt.reset();
-            }
-        },
-    });
-
-    AFRAME.registerComponent('vrm-spring-bone', {
-        schema: {
-            gravity: { type: 'vec3', default: { x: 0, y: -1, z: 0 } },
-            stiffness: { type: 'number', default: 1.0 },
-        },
-        dependencies: ['vrm-model'],
-        update() {
-            const vrmModel = this.el.components['vrm-model'];
-            const springBoneManager = vrmModel?.vrm?.springBoneManager;
-            if (!springBoneManager)
-                return;
-            const gravity = this.data.gravity;
-            const stiffness = this.data.stiffness;
-            const gravityDir = new THREE42__namespace.Vector3(gravity.x, gravity.y, gravity.z).normalize();
-            const gravityPower = Math.sqrt(gravity.x * gravity.x + gravity.y * gravity.y + gravity.z * gravity.z);
-            for (const joint of springBoneManager.joints) {
-                joint.settings.gravityDir.copy(gravityDir);
-                joint.settings.gravityPower = gravityPower;
-                joint.settings.stiffness = stiffness;
-            }
-            this._lastGravity = gravity.clone();
-            this._lastStiffness = stiffness;
-        },
-        remove() {
-            // Reset to defaults is not strictly required since the VRM may be disposed
         },
     });
 
@@ -11915,18 +11587,20 @@
         dependencies: ['vrm-model'],
         init() {
             this._sendInterval = null;
-            this._lastSent = 0;
-            this._cachedExpressions = {};
+            this._vrm = null;
             const isLocal = !!(this.data.server && this.data.room && this.data.userId);
             if (isLocal) {
                 const system = this.el.sceneEl.systems['vrm-network-system'];
                 if (system) {
                     system.connect(this.data.server);
-                    // Wait for model load to get avatar URL
                     const vrmModel = this.el.components['vrm-model'];
                     const avatarUrl = vrmModel?.data?.src || '';
                     system.joinRoom(this.data.room, this.data.userId, avatarUrl);
                 }
+                this.el.addEventListener('model-loaded', (e) => {
+                    const detail = e.detail;
+                    this._vrm = detail.vrm;
+                });
                 // Send delta at 20Hz
                 this._sendInterval = setInterval(() => {
                     this.sendDelta();
@@ -11937,37 +11611,39 @@
             const system = this.el.sceneEl.systems['vrm-network-system'];
             if (!system?.client)
                 return;
+            if (!this._vrm)
+                return;
             const obj = this.el.object3D;
             obj.updateMatrixWorld();
-            const pos = new THREE42__namespace.Vector3();
-            const rot = new THREE42__namespace.Quaternion();
-            const scale = new THREE42__namespace.Vector3();
-            obj.matrixWorld.decompose(pos, rot, scale);
-            // Gather expressions
-            const expressionsComp = this.el.components['vrm-expressions'];
+            const pos = new THREE14__namespace.Vector3();
+            const quat = new THREE14__namespace.Quaternion();
+            const scale = new THREE14__namespace.Vector3();
+            obj.matrixWorld.decompose(pos, quat, scale);
+            // Gather expressions from VRM
             const expressions = {};
-            if (expressionsComp?.data) {
-                for (const [key, value] of Object.entries(expressionsComp.data)) {
-                    if (typeof value === 'number' && value !== 0) {
-                        expressions[key] = value;
+            const em = this._vrm.expressionManager;
+            if (em) {
+                for (const [name, expr] of Object.entries(em.expressionMap)) {
+                    if (expr.weight > 0.001) {
+                        expressions[name] = expr.weight;
                     }
                 }
             }
             // Gather lookAt target
-            const lookAtComp = this.el.components['vrm-look-at'];
-            let lookAtPos = new THREE42__namespace.Vector3();
-            if (lookAtComp?._targetEntity) {
-                lookAtComp._targetEntity.object3D.getWorldPosition(lookAtPos);
-            }
-            else {
-                // Default forward direction
-                const forward = new THREE42__namespace.Vector3(0, 0, -1);
-                forward.applyQuaternion(rot);
+            const lookAt = this._vrm.lookAt;
+            let lookAtPos = new THREE14__namespace.Vector3();
+            if (lookAt) {
+                // Default: look forward relative to model
+                const forward = new THREE14__namespace.Vector3(0, 0, 1);
+                forward.applyQuaternion(quat);
                 lookAtPos.copy(pos).add(forward);
             }
-            const sscsTransform = packToSSCS(pos, rot, scale);
             const state = {
-                transform: sscsTransform,
+                transform: {
+                    pos: [pos.x, pos.y, pos.z],
+                    rot: [quat.x, quat.y, quat.z, quat.w],
+                    scale: [scale.x, scale.y, scale.z],
+                },
                 expressions,
                 look_at: [lookAtPos.x, lookAtPos.y, lookAtPos.z],
             };
@@ -11981,19 +11657,791 @@
         },
     });
 
-    exports.NetworkClient = NetworkClient;
-    exports.convertDirection = convertDirection;
-    exports.convertPosition = convertPosition;
-    exports.convertRotation = convertRotation;
-    exports.convertScale = convertScale;
-    exports.convertTransform = convertTransform;
-    exports.correctVrm0Orientation = correctVrm0Orientation;
-    exports.fromStandardPosition = fromStandardPosition;
-    exports.fromStandardRotation = fromStandardRotation;
-    exports.isValidStandardPosition = isValidStandardPosition;
-    exports.isValidStandardRotation = isValidStandardRotation;
-    exports.isValidStandardScale = isValidStandardScale;
-    exports.toStandardPosition = toStandardPosition;
-    exports.toStandardRotation = toStandardRotation;
+    AFRAME.registerComponent('vrm-first-person', {
+        schema: {
+            enabled: { type: 'boolean', default: false },
+        },
+        dependencies: ['vrm-model'],
+        init() {
+            this._vrm = null;
+            this.el.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                this._vrm = detail.vrm;
+                this.updateFirstPerson();
+            });
+        },
+        update() {
+            this.updateFirstPerson();
+        },
+        updateFirstPerson() {
+            if (!this._vrm)
+                return;
+            const fp = this._vrm.firstPerson;
+            if (!fp)
+                return;
+            if (this.data.enabled) {
+                // In first-person mode, hide meshes that should not be visible
+                // VRMFirstPerson has mesh annotations that control visibility
+                fp.setup({ firstPersonOnlyLayer: 1 });
+            }
+            else {
+                fp.setup({ firstPersonOnlyLayer: 0 });
+            }
+        },
+    });
+
+    /*!
+     * @pixiv/three-vrm-animation v3.5.3
+     * The implementation of VRM Animation
+     *
+     * Copyright (c) 2019-2026 pixiv Inc.
+     * @pixiv/three-vrm-animation is distributed under MIT License
+     * https://github.com/pixiv/three-vrm/blob/release/LICENSE
+     */
+    var __async = (__this, __arguments, generator) => {
+      return new Promise((resolve, reject) => {
+        var fulfilled = (value) => {
+          try {
+            step(generator.next(value));
+          } catch (e) {
+            reject(e);
+          }
+        };
+        var rejected = (value) => {
+          try {
+            step(generator.throw(value));
+          } catch (e) {
+            reject(e);
+          }
+        };
+        var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+        step((generator = generator.apply(__this, __arguments)).next());
+      });
+    };
+    var VRMExpressionPresetName = {
+      Aa: "aa",
+      Ih: "ih",
+      Ou: "ou",
+      Ee: "ee",
+      Oh: "oh",
+      Blink: "blink",
+      Happy: "happy",
+      Angry: "angry",
+      Sad: "sad",
+      Relaxed: "relaxed",
+      LookUp: "lookUp",
+      Surprised: "surprised",
+      LookDown: "lookDown",
+      LookLeft: "lookLeft",
+      LookRight: "lookRight",
+      BlinkLeft: "blinkLeft",
+      BlinkRight: "blinkRight",
+      Neutral: "neutral"
+    };
+    new THREE14__namespace.Color();
+    new THREE14__namespace.Vector2();
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Quaternion();
+    var VRMHumanBoneParentMap = {
+      hips: null,
+      spine: "hips",
+      chest: "spine",
+      upperChest: "chest",
+      neck: "upperChest",
+      head: "neck",
+      leftEye: "head",
+      rightEye: "head",
+      jaw: "head",
+      leftUpperLeg: "hips",
+      leftLowerLeg: "leftUpperLeg",
+      leftFoot: "leftLowerLeg",
+      leftToes: "leftFoot",
+      rightUpperLeg: "hips",
+      rightLowerLeg: "rightUpperLeg",
+      rightFoot: "rightLowerLeg",
+      rightToes: "rightFoot",
+      leftShoulder: "upperChest",
+      leftUpperArm: "leftShoulder",
+      leftLowerArm: "leftUpperArm",
+      leftHand: "leftLowerArm",
+      rightShoulder: "upperChest",
+      rightUpperArm: "rightShoulder",
+      rightLowerArm: "rightUpperArm",
+      rightHand: "rightLowerArm",
+      leftThumbMetacarpal: "leftHand",
+      leftThumbProximal: "leftThumbMetacarpal",
+      leftThumbDistal: "leftThumbProximal",
+      leftIndexProximal: "leftHand",
+      leftIndexIntermediate: "leftIndexProximal",
+      leftIndexDistal: "leftIndexIntermediate",
+      leftMiddleProximal: "leftHand",
+      leftMiddleIntermediate: "leftMiddleProximal",
+      leftMiddleDistal: "leftMiddleIntermediate",
+      leftRingProximal: "leftHand",
+      leftRingIntermediate: "leftRingProximal",
+      leftRingDistal: "leftRingIntermediate",
+      leftLittleProximal: "leftHand",
+      leftLittleIntermediate: "leftLittleProximal",
+      leftLittleDistal: "leftLittleIntermediate",
+      rightThumbMetacarpal: "rightHand",
+      rightThumbProximal: "rightThumbMetacarpal",
+      rightThumbDistal: "rightThumbProximal",
+      rightIndexProximal: "rightHand",
+      rightIndexIntermediate: "rightIndexProximal",
+      rightIndexDistal: "rightIndexIntermediate",
+      rightMiddleProximal: "rightHand",
+      rightMiddleIntermediate: "rightMiddleProximal",
+      rightMiddleDistal: "rightMiddleIntermediate",
+      rightRingProximal: "rightHand",
+      rightRingIntermediate: "rightRingProximal",
+      rightRingDistal: "rightRingIntermediate",
+      rightLittleProximal: "rightHand",
+      rightLittleIntermediate: "rightLittleProximal",
+      rightLittleDistal: "rightLittleIntermediate"
+    };
+    function quatInvertCompat(target) {
+      if (target.invert) {
+        target.invert();
+      } else {
+        target.inverse();
+      }
+      return target;
+    }
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Vector3();
+    new THREE14__namespace.Vector3();
+    var SQRT_2_OVER_2 = Math.sqrt(2) / 2;
+    new THREE14__namespace.Quaternion(0, 0, -SQRT_2_OVER_2, SQRT_2_OVER_2);
+    new THREE14__namespace.Vector3(0, 1, 0);
+    var _position = new THREE14__namespace.Vector3();
+    var _scale = new THREE14__namespace.Vector3();
+    function getWorldQuaternionLite(object, out) {
+      object.matrixWorld.decompose(_position, out, _scale);
+      return out;
+    }
+    function calcAzimuthAltitude(vector) {
+      return [Math.atan2(-vector.z, vector.x), Math.atan2(vector.y, Math.sqrt(vector.x * vector.x + vector.z * vector.z))];
+    }
+    function sanitizeAngle(angle) {
+      const roundTurn = Math.round(angle / 2 / Math.PI);
+      return angle - 2 * Math.PI * roundTurn;
+    }
+    var VEC3_POSITIVE_Z = new THREE14__namespace.Vector3(0, 0, 1);
+    var _v3A5 = new THREE14__namespace.Vector3();
+    var _v3B3 = new THREE14__namespace.Vector3();
+    var _v3C = new THREE14__namespace.Vector3();
+    var _quatA5 = new THREE14__namespace.Quaternion();
+    var _quatB2 = new THREE14__namespace.Quaternion();
+    var _quatC = new THREE14__namespace.Quaternion();
+    var _quatD = new THREE14__namespace.Quaternion();
+    var _eulerA = new THREE14__namespace.Euler();
+    var _VRMLookAt = class _VRMLookAt2 {
+      /**
+       * Create a new {@link VRMLookAt}.
+       *
+       * @param humanoid A {@link VRMHumanoid}
+       * @param applier A {@link VRMLookAtApplier}
+       */
+      constructor(humanoid, applier) {
+        this.offsetFromHeadBone = new THREE14__namespace.Vector3();
+        this.autoUpdate = true;
+        this.faceFront = new THREE14__namespace.Vector3(0, 0, 1);
+        this.humanoid = humanoid;
+        this.applier = applier;
+        this._yaw = 0;
+        this._pitch = 0;
+        this._needsUpdate = true;
+        this._restHeadWorldQuaternion = this.getLookAtWorldQuaternion(new THREE14__namespace.Quaternion());
+      }
+      /**
+       * Its current angle around Y axis, in degree.
+       */
+      get yaw() {
+        return this._yaw;
+      }
+      /**
+       * Its current angle around Y axis, in degree.
+       */
+      set yaw(value) {
+        this._yaw = value;
+        this._needsUpdate = true;
+      }
+      /**
+       * Its current angle around X axis, in degree.
+       */
+      get pitch() {
+        return this._pitch;
+      }
+      /**
+       * Its current angle around X axis, in degree.
+       */
+      set pitch(value) {
+        this._pitch = value;
+        this._needsUpdate = true;
+      }
+      /**
+       * @deprecated Use {@link getEuler} instead.
+       */
+      get euler() {
+        console.warn("VRMLookAt: euler is deprecated. use getEuler() instead.");
+        return this.getEuler(new THREE14__namespace.Euler());
+      }
+      /**
+       * Get its yaw-pitch angles as an `Euler`.
+       * Does NOT consider {@link faceFront}; it returns `Euler(0, 0, 0; "YXZ")` by default regardless of the faceFront value.
+       *
+       * @param target The target euler
+       */
+      getEuler(target) {
+        return target.set(THREE14__namespace.MathUtils.DEG2RAD * this._pitch, THREE14__namespace.MathUtils.DEG2RAD * this._yaw, 0, "YXZ");
+      }
+      /**
+       * Copy the given {@link VRMLookAt} into this one.
+       * {@link humanoid} must be same as the source one.
+       * {@link applier} will reference the same instance as the source one.
+       * @param source The {@link VRMLookAt} you want to copy
+       * @returns this
+       */
+      copy(source) {
+        if (this.humanoid !== source.humanoid) {
+          throw new Error("VRMLookAt: humanoid must be same in order to copy");
+        }
+        this.offsetFromHeadBone.copy(source.offsetFromHeadBone);
+        this.applier = source.applier;
+        this.autoUpdate = source.autoUpdate;
+        this.target = source.target;
+        this.faceFront.copy(source.faceFront);
+        return this;
+      }
+      /**
+       * Returns a clone of this {@link VRMLookAt}.
+       * Note that {@link humanoid} and {@link applier} will reference the same instance as this one.
+       * @returns Copied {@link VRMLookAt}
+       */
+      clone() {
+        return new _VRMLookAt2(this.humanoid, this.applier).copy(this);
+      }
+      /**
+       * Reset the lookAt direction (yaw and pitch) to the initial direction.
+       */
+      reset() {
+        this._yaw = 0;
+        this._pitch = 0;
+        this._needsUpdate = true;
+      }
+      /**
+       * Get its lookAt position in world coordinate.
+       *
+       * @param target A target `THREE.Vector3`
+       */
+      getLookAtWorldPosition(target) {
+        const head = this.humanoid.getRawBoneNode("head");
+        return target.copy(this.offsetFromHeadBone).applyMatrix4(head.matrixWorld);
+      }
+      /**
+       * Get its lookAt rotation in world coordinate.
+       * Does NOT consider {@link faceFront}.
+       *
+       * @param target A target `THREE.Quaternion`
+       */
+      getLookAtWorldQuaternion(target) {
+        const head = this.humanoid.getRawBoneNode("head");
+        return getWorldQuaternionLite(head, target);
+      }
+      /**
+       * Get a quaternion that rotates the +Z unit vector of the humanoid Head to the {@link faceFront} direction.
+       *
+       * @param target A target `THREE.Quaternion`
+       */
+      getFaceFrontQuaternion(target) {
+        if (this.faceFront.distanceToSquared(VEC3_POSITIVE_Z) < 0.01) {
+          return target.copy(this._restHeadWorldQuaternion).invert();
+        }
+        const [faceFrontAzimuth, faceFrontAltitude] = calcAzimuthAltitude(this.faceFront);
+        _eulerA.set(0, 0.5 * Math.PI + faceFrontAzimuth, faceFrontAltitude, "YZX");
+        return target.setFromEuler(_eulerA).premultiply(_quatD.copy(this._restHeadWorldQuaternion).invert());
+      }
+      /**
+       * Get its LookAt direction in world coordinate.
+       *
+       * @param target A target `THREE.Vector3`
+       */
+      getLookAtWorldDirection(target) {
+        this.getLookAtWorldQuaternion(_quatB2);
+        this.getFaceFrontQuaternion(_quatC);
+        return target.copy(VEC3_POSITIVE_Z).applyQuaternion(_quatB2).applyQuaternion(_quatC).applyEuler(this.getEuler(_eulerA));
+      }
+      /**
+       * Set its lookAt target position.
+       *
+       * Note that its result will be instantly overwritten if {@link VRMLookAtHead.autoUpdate} is enabled.
+       *
+       * If you want to track an object continuously, you might want to use {@link target} instead.
+       *
+       * @param position A target position, in world space
+       */
+      lookAt(position) {
+        const headRotDiffInv = _quatA5.copy(this._restHeadWorldQuaternion).multiply(quatInvertCompat(this.getLookAtWorldQuaternion(_quatB2)));
+        const headPos = this.getLookAtWorldPosition(_v3B3);
+        const lookAtDir = _v3C.copy(position).sub(headPos).applyQuaternion(headRotDiffInv).normalize();
+        const [azimuthFrom, altitudeFrom] = calcAzimuthAltitude(this.faceFront);
+        const [azimuthTo, altitudeTo] = calcAzimuthAltitude(lookAtDir);
+        const yaw = sanitizeAngle(azimuthTo - azimuthFrom);
+        const pitch = sanitizeAngle(altitudeFrom - altitudeTo);
+        this._yaw = THREE14__namespace.MathUtils.RAD2DEG * yaw;
+        this._pitch = THREE14__namespace.MathUtils.RAD2DEG * pitch;
+        this._needsUpdate = true;
+      }
+      /**
+       * Update the VRMLookAtHead.
+       * If {@link autoUpdate} is enabled, this will make it look at the {@link target}.
+       *
+       * @param delta deltaTime, it isn't used though. You can use the parameter if you want to use this in your own extended {@link VRMLookAt}.
+       */
+      update(delta) {
+        if (this.target != null && this.autoUpdate) {
+          this.lookAt(this.target.getWorldPosition(_v3A5));
+        }
+        if (this._needsUpdate) {
+          this._needsUpdate = false;
+          this.applier.applyYawPitch(this._yaw, this._pitch);
+        }
+      }
+    };
+    _VRMLookAt.EULER_ORDER = "YXZ";
+    var VRMLookAt = _VRMLookAt;
+    new THREE14__namespace.Vector3(0, 0, 1);
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Quaternion();
+    new THREE14__namespace.Euler(0, 0, 0, "YXZ");
+    var RAD2DEG = 180 / Math.PI;
+    var _eulerA3 = /* @__PURE__ */ new THREE14__namespace.Euler();
+    var VRMLookAtQuaternionProxy = class extends THREE14__namespace.Object3D {
+      constructor(lookAt) {
+        super();
+        this.vrmLookAt = lookAt;
+        this.type = "VRMLookAtQuaternionProxy";
+        const prevRotationOnChangeCallback = this.rotation._onChangeCallback;
+        this.rotation._onChange(() => {
+          prevRotationOnChangeCallback();
+          this._applyToLookAt();
+        });
+        const prevQuaternionOnChangeCallback = this.quaternion._onChangeCallback;
+        this.quaternion._onChange(() => {
+          prevQuaternionOnChangeCallback();
+          this._applyToLookAt();
+        });
+      }
+      _applyToLookAt() {
+        _eulerA3.setFromQuaternion(this.quaternion, VRMLookAt.EULER_ORDER);
+        this.vrmLookAt.yaw = RAD2DEG * _eulerA3.y;
+        this.vrmLookAt.pitch = RAD2DEG * _eulerA3.x;
+      }
+    };
+
+    // src/createVRMAnimationClip.ts
+    function createVRMAnimationHumanoidTracks(vrmAnimation, humanoid, metaVersion) {
+      var _a, _b;
+      const translation = /* @__PURE__ */ new Map();
+      const rotation = /* @__PURE__ */ new Map();
+      for (const [name, origTrack] of vrmAnimation.humanoidTracks.rotation.entries()) {
+        const nodeName = (_a = humanoid.getNormalizedBoneNode(name)) == null ? void 0 : _a.name;
+        if (nodeName != null) {
+          const track = new THREE14__namespace.QuaternionKeyframeTrack(
+            `${nodeName}.quaternion`,
+            origTrack.times,
+            origTrack.values.map((v, i) => metaVersion === "0" && i % 2 === 0 ? -v : v)
+          );
+          rotation.set(name, track);
+        }
+      }
+      for (const [name, origTrack] of vrmAnimation.humanoidTracks.translation.entries()) {
+        const nodeName = (_b = humanoid.getNormalizedBoneNode(name)) == null ? void 0 : _b.name;
+        if (nodeName != null) {
+          const animationY = vrmAnimation.restHipsPosition.y;
+          const humanoidY = humanoid.normalizedRestPose.hips.position[1];
+          const scale = humanoidY / animationY;
+          const track = origTrack.clone();
+          track.values = track.values.map((v, i) => (metaVersion === "0" && i % 3 !== 1 ? -v : v) * scale);
+          track.name = `${nodeName}.position`;
+          translation.set(name, track);
+        }
+      }
+      return { translation, rotation };
+    }
+    function createVRMAnimationExpressionTracks(vrmAnimation, expressionManager) {
+      const preset = /* @__PURE__ */ new Map();
+      const custom = /* @__PURE__ */ new Map();
+      for (const [name, origTrack] of vrmAnimation.expressionTracks.preset.entries()) {
+        const trackName = expressionManager.getExpressionTrackName(name);
+        if (trackName != null) {
+          const track = origTrack.clone();
+          track.name = trackName;
+          preset.set(name, track);
+        }
+      }
+      for (const [name, origTrack] of vrmAnimation.expressionTracks.custom.entries()) {
+        const trackName = expressionManager.getExpressionTrackName(name);
+        if (trackName != null) {
+          const track = origTrack.clone();
+          track.name = trackName;
+          custom.set(name, track);
+        }
+      }
+      return { preset, custom };
+    }
+    function createVRMAnimationLookAtTrack(vrmAnimation, trackName) {
+      if (vrmAnimation.lookAtTrack == null) {
+        return null;
+      }
+      const track = vrmAnimation.lookAtTrack.clone();
+      track.name = trackName;
+      return track;
+    }
+    function createVRMAnimationClip(vrmAnimation, vrm) {
+      const tracks = [];
+      const humanoidTracks = createVRMAnimationHumanoidTracks(vrmAnimation, vrm.humanoid, vrm.meta.metaVersion);
+      tracks.push(...humanoidTracks.translation.values());
+      tracks.push(...humanoidTracks.rotation.values());
+      if (vrm.expressionManager != null) {
+        const expressionTracks = createVRMAnimationExpressionTracks(vrmAnimation, vrm.expressionManager);
+        tracks.push(...expressionTracks.preset.values());
+        tracks.push(...expressionTracks.custom.values());
+      }
+      if (vrm.lookAt != null) {
+        let proxy = vrm.scene.children.find((obj) => obj instanceof VRMLookAtQuaternionProxy);
+        if (proxy == null) {
+          console.warn(
+            "createVRMAnimationClip: VRMLookAtQuaternionProxy is not found. Creating a new one automatically. To suppress this warning, create a VRMLookAtQuaternionProxy manually"
+          );
+          proxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
+          proxy.name = "VRMLookAtQuaternionProxy";
+          vrm.scene.add(proxy);
+        } else if (proxy.name === "") {
+          console.warn(
+            "createVRMAnimationClip: VRMLookAtQuaternionProxy is found but its name is not set. Setting the name automatically. To suppress this warning, set the name manually"
+          );
+          proxy.name = "VRMLookAtQuaternionProxy";
+        }
+        const track = createVRMAnimationLookAtTrack(vrmAnimation, `${proxy.name}.quaternion`);
+        if (track != null) {
+          tracks.push(track);
+        }
+      }
+      return new THREE14__namespace.AnimationClip("Clip", vrmAnimation.duration, tracks);
+    }
+    var VRMAnimation = class {
+      constructor() {
+        this.duration = 0;
+        this.restHipsPosition = new THREE14__namespace.Vector3();
+        this.humanoidTracks = {
+          translation: /* @__PURE__ */ new Map(),
+          rotation: /* @__PURE__ */ new Map()
+        };
+        this.expressionTracks = {
+          preset: /* @__PURE__ */ new Map(),
+          custom: /* @__PURE__ */ new Map()
+        };
+        this.lookAtTrack = null;
+      }
+    };
+
+    // src/utils/arrayChunk.ts
+    function arrayChunk(array, every) {
+      const N = array.length;
+      const ret = [];
+      let current = [];
+      let remaining = 0;
+      for (let i = 0; i < N; i++) {
+        const el = array[i];
+        if (remaining <= 0) {
+          remaining = every;
+          current = [];
+          ret.push(current);
+        }
+        current.push(el);
+        remaining--;
+      }
+      return ret;
+    }
+
+    // src/VRMAnimationLoaderPlugin.ts
+    var MAT4_IDENTITY = /* @__PURE__ */ new THREE14__namespace.Matrix4();
+    var _v3A6 = /* @__PURE__ */ new THREE14__namespace.Vector3();
+    var _quatA7 = /* @__PURE__ */ new THREE14__namespace.Quaternion();
+    var _quatB4 = /* @__PURE__ */ new THREE14__namespace.Quaternion();
+    var _quatC2 = /* @__PURE__ */ new THREE14__namespace.Quaternion();
+    var POSSIBLE_SPEC_VERSIONS2 = /* @__PURE__ */ new Set(["1.0", "1.0-draft"]);
+    var vrmExpressionPresetNameSet = /* @__PURE__ */ new Set(Object.values(VRMExpressionPresetName));
+    var VRMAnimationLoaderPlugin = class {
+      constructor(parser) {
+        this.parser = parser;
+      }
+      get name() {
+        return "VRMC_vrm_animation";
+      }
+      afterRoot(gltf) {
+        return __async(this, null, function* () {
+          var _a, _b, _c;
+          const defGltf = gltf.parser.json;
+          const defExtensionsUsed = defGltf.extensionsUsed;
+          if (defExtensionsUsed == null || defExtensionsUsed.indexOf(this.name) == -1) {
+            return;
+          }
+          const defExtension = (_a = defGltf.extensions) == null ? void 0 : _a[this.name];
+          if (defExtension == null) {
+            return;
+          }
+          const specVersion = defExtension.specVersion;
+          if (specVersion == null) {
+            console.warn(
+              "VRMAnimationLoaderPlugin: specVersion of the VRMA is not defined. Consider updating the animation file. Assuming the spec version is 1.0."
+            );
+          } else {
+            if (!POSSIBLE_SPEC_VERSIONS2.has(specVersion)) {
+              console.warn(`VRMAnimationLoaderPlugin: Unknown VRMC_vrm_animation spec version: ${specVersion}`);
+              return;
+            }
+            if (specVersion === "1.0-draft") {
+              console.warn(
+                "VRMAnimationLoaderPlugin: Using a draft spec version: 1.0-draft. Some behaviors may be different. Consider updating the animation file."
+              );
+            }
+          }
+          const nodeMap = this._createNodeMap(defExtension);
+          const worldMatrixMap = yield this._createBoneWorldMatrixMap(gltf, defExtension);
+          const hipsNode = (_c = (_b = defExtension.humanoid) == null ? void 0 : _b.humanBones["hips"]) == null ? void 0 : _c.node;
+          const hips = hipsNode != null ? yield gltf.parser.getDependency("node", hipsNode) : null;
+          const restHipsPosition = new THREE14__namespace.Vector3();
+          hips == null ? void 0 : hips.getWorldPosition(restHipsPosition);
+          if (restHipsPosition.y < 1e-3) {
+            console.warn(
+              "VRMAnimationLoaderPlugin: The loaded VRM Animation might violate the VRM T-pose (The y component of the rest hips position is approximately zero or below.)"
+            );
+          }
+          const clips = gltf.animations;
+          const animations = clips.map((clip, iAnimation) => {
+            const defAnimation = defGltf.animations[iAnimation];
+            const animation = this._parseAnimation(clip, defAnimation, nodeMap, worldMatrixMap);
+            animation.restHipsPosition = restHipsPosition;
+            return animation;
+          });
+          gltf.userData.vrmAnimations = animations;
+        });
+      }
+      _createNodeMap(defExtension) {
+        var _a, _b, _c, _d, _e;
+        const humanoidIndexToName = /* @__PURE__ */ new Map();
+        const expressionsIndexToName = /* @__PURE__ */ new Map();
+        const humanBones = (_a = defExtension.humanoid) == null ? void 0 : _a.humanBones;
+        if (humanBones) {
+          Object.entries(humanBones).forEach(([name, bone]) => {
+            const node = bone == null ? void 0 : bone.node;
+            if (node != null) {
+              humanoidIndexToName.set(node, name);
+            }
+          });
+        }
+        const preset = (_b = defExtension.expressions) == null ? void 0 : _b.preset;
+        if (preset) {
+          Object.entries(preset).forEach(([name, expression]) => {
+            const node = expression == null ? void 0 : expression.node;
+            if (node != null) {
+              expressionsIndexToName.set(node, name);
+            }
+          });
+        }
+        const custom = (_c = defExtension.expressions) == null ? void 0 : _c.custom;
+        if (custom) {
+          Object.entries(custom).forEach(([name, expression]) => {
+            const { node } = expression;
+            expressionsIndexToName.set(node, name);
+          });
+        }
+        const lookAtIndex = (_e = (_d = defExtension.lookAt) == null ? void 0 : _d.node) != null ? _e : null;
+        return { humanoidIndexToName, expressionsIndexToName, lookAtIndex };
+      }
+      _createBoneWorldMatrixMap(gltf, defExtension) {
+        return __async(this, null, function* () {
+          var _a, _b;
+          gltf.scene.updateWorldMatrix(false, true);
+          const threeNodes = yield gltf.parser.getDependencies("node");
+          const worldMatrixMap = /* @__PURE__ */ new Map();
+          if (defExtension.humanoid == null) {
+            return worldMatrixMap;
+          }
+          for (const [boneName, humanBone] of Object.entries(defExtension.humanoid.humanBones)) {
+            const node = humanBone == null ? void 0 : humanBone.node;
+            if (node != null) {
+              const threeNode = threeNodes[node];
+              worldMatrixMap.set(boneName, threeNode.matrixWorld);
+              if (boneName === "hips") {
+                worldMatrixMap.set("hipsParent", (_b = (_a = threeNode.parent) == null ? void 0 : _a.matrixWorld) != null ? _b : MAT4_IDENTITY);
+              }
+            }
+          }
+          return worldMatrixMap;
+        });
+      }
+      _parseAnimation(animationClip, defAnimation, nodeMap, worldMatrixMap) {
+        const tracks = animationClip.tracks;
+        const defChannels = defAnimation.channels;
+        const result = new VRMAnimation();
+        result.duration = animationClip.duration;
+        defChannels.forEach((channel, iChannel) => {
+          const { node, path } = channel.target;
+          const origTrack = tracks[iChannel];
+          if (node == null) {
+            return;
+          }
+          const boneName = nodeMap.humanoidIndexToName.get(node);
+          if (boneName != null) {
+            let parentBoneName = VRMHumanBoneParentMap[boneName];
+            while (parentBoneName != null && worldMatrixMap.get(parentBoneName) == null) {
+              parentBoneName = VRMHumanBoneParentMap[parentBoneName];
+            }
+            if (parentBoneName == null) {
+              parentBoneName = "hipsParent";
+            }
+            if (path === "translation") {
+              if (boneName !== "hips") {
+                console.warn(
+                  `The loading animation contains a translation track for ${boneName}, which is not permitted in the VRMC_vrm_animation spec. ignoring the track`
+                );
+              } else {
+                const hipsParentWorldMatrix = worldMatrixMap.get("hipsParent");
+                const trackValues = arrayChunk(origTrack.values, 3).flatMap(
+                  (v) => _v3A6.fromArray(v).applyMatrix4(hipsParentWorldMatrix).toArray()
+                );
+                const track = origTrack.clone();
+                track.values = new Float32Array(trackValues);
+                result.humanoidTracks.translation.set(boneName, track);
+              }
+            } else if (path === "rotation") {
+              const worldMatrix = worldMatrixMap.get(boneName);
+              const parentWorldMatrix = worldMatrixMap.get(parentBoneName);
+              worldMatrix.decompose(_v3A6, _quatA7, _v3A6);
+              _quatA7.invert();
+              parentWorldMatrix.decompose(_v3A6, _quatB4, _v3A6);
+              const trackValues = arrayChunk(origTrack.values, 4).flatMap(
+                (q) => _quatC2.fromArray(q).premultiply(_quatB4).multiply(_quatA7).toArray()
+              );
+              const track = origTrack.clone();
+              track.values = new Float32Array(trackValues);
+              result.humanoidTracks.rotation.set(boneName, track);
+            } else {
+              throw new Error(`Invalid path "${path}"`);
+            }
+            return;
+          }
+          const expressionName = nodeMap.expressionsIndexToName.get(node);
+          if (expressionName != null) {
+            if (path === "translation") {
+              const times = origTrack.times;
+              const values = new Float32Array(origTrack.values.length / 3);
+              for (let i = 0; i < values.length; i++) {
+                values[i] = origTrack.values[3 * i];
+              }
+              const newTrack = new THREE14__namespace.NumberKeyframeTrack(`${expressionName}.weight`, times, values);
+              if (vrmExpressionPresetNameSet.has(expressionName)) {
+                result.expressionTracks.preset.set(expressionName, newTrack);
+              } else {
+                result.expressionTracks.custom.set(expressionName, newTrack);
+              }
+            } else {
+              throw new Error(`Invalid path "${path}"`);
+            }
+            return;
+          }
+          if (node === nodeMap.lookAtIndex) {
+            if (path === "rotation") {
+              result.lookAtTrack = origTrack;
+            } else {
+              throw new Error(`Invalid path "${path}"`);
+            }
+          }
+        });
+        return result;
+      }
+    };
+    /*!
+     * @pixiv/three-vrm-core v3.5.3
+     * The implementation of core features of VRM, for @pixiv/three-vrm
+     *
+     * Copyright (c) 2019-2026 pixiv Inc.
+     * @pixiv/three-vrm-core is distributed under MIT License
+     * https://github.com/pixiv/three-vrm/blob/release/LICENSE
+     */
+
+    AFRAME.registerComponent('vrm-animation', {
+        schema: {
+            src: { type: 'string' },
+            autoplay: { type: 'boolean', default: true },
+            loop: { type: 'boolean', default: true },
+        },
+        dependencies: ['vrm-model'],
+        init() {
+            this._vrm = null;
+            this._loader = new GLTFLoader();
+            this._loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+            this._mixer = null;
+            this._clock = new THREE14__namespace.Clock();
+            this.el.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                this._vrm = detail.vrm;
+                if (this.data.src) {
+                    this.loadAnimation(this.data.src);
+                }
+            });
+        },
+        update() {
+            if (this.data.src && this._vrm) {
+                this.loadAnimation(this.data.src);
+            }
+        },
+        loadAnimation(url) {
+            this._loader.load(url, (gltf) => {
+                if (!this._vrm)
+                    return;
+                const vrmAnimations = gltf.userData.vrmAnimations;
+                if (!vrmAnimations || vrmAnimations.length === 0) {
+                    console.error('[vrm-animation] No VRMA animation found in', url);
+                    return;
+                }
+                const vrmAnimation = vrmAnimations[0];
+                const clip = createVRMAnimationClip(vrmAnimation, this._vrm);
+                if (this._mixer) {
+                    this._mixer.stopAllAction();
+                }
+                this._mixer = new THREE14__namespace.AnimationMixer(this._vrm.scene);
+                const action = this._mixer.clipAction(clip);
+                action.loop = this.data.loop ? THREE14__namespace.LoopRepeat : THREE14__namespace.LoopOnce;
+                if (this.data.autoplay) {
+                    action.play();
+                }
+            }, undefined, (error) => {
+                console.error('[vrm-animation] Failed to load VRMA:', error);
+            });
+        },
+        tick() {
+            if (this._mixer) {
+                const delta = this._clock.getDelta();
+                this._mixer.update(delta);
+            }
+        },
+        remove() {
+            if (this._mixer) {
+                this._mixer.stopAllAction();
+                this._mixer = null;
+            }
+        },
+    });
 
 }));

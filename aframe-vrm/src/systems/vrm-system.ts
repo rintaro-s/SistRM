@@ -1,28 +1,31 @@
-import { VRM } from '@pixiv/three-vrm';
+import * as THREE from 'three';
+import type { VRM } from '@pixiv/three-vrm';
 
-interface VRMSystem extends AFrameSystem {
-  vrms: Set<VRM>;
-  registerVRM(vrm: VRM): void;
-  unregisterVRM(vrm: VRM): void;
+interface VRMEntity extends AFrameEntity {
+  components: {
+    'vrm-model'?: { vrm?: VRM };
+  };
 }
 
-AFRAME.registerSystem('vrm', {
-  init(this: VRMSystem): void {
-    this.vrms = new Set();
+AFRAME.registerSystem('vrm-system', {
+  schema: {},
+
+  init(): void {
+    this.clock = new THREE.Clock();
   },
 
-  registerVRM(this: VRMSystem, vrm: VRM): void {
-    this.vrms.add(vrm);
-  },
+  tick(_time: number, _timeDelta: number): void {
+    const delta = this.clock.getDelta();
+    const scene = this.sceneEl;
 
-  unregisterVRM(this: VRMSystem, vrm: VRM): void {
-    this.vrms.delete(vrm);
-  },
-
-  tick(this: VRMSystem, _time: number, timeDelta: number): void {
-    const delta = timeDelta / 1000;
-    for (const vrm of this.vrms) {
-      vrm.update(delta);
+    // Update all VRM models
+    const vrms = scene.querySelectorAll('[vrm-model]') as unknown as Array<VRMEntity>;
+    for (let i = 0; i < vrms.length; i++) {
+      const el = vrms[i];
+      const vrm = el.components?.['vrm-model']?.vrm;
+      if (vrm) {
+        vrm.update(delta);
+      }
     }
   },
 });

@@ -2,134 +2,51 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>SisterRM Cross-Platform Demo — A-Frame</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
-  <!-- Build aframe-vrm first: cd ../../aframe-vrm && npm install && npm run build
-       Then copy or symlink: cp ../../aframe-vrm/dist/aframe-vrm.js ./aframe-vrm.js -->
-  <script src="./aframe-vrm.js"></script>
-  <style>
-    #ui {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 12px;
-      border-radius: 8px;
-      font-family: sans-serif;
-      font-size: 13px;
-      max-width: 280px;
-    }
-    #ui h3 { margin: 0 0 8px; font-size: 14px; }
-    #ui label { display: block; margin: 4px 0; }
-    #ui input[type=range] { width: 120px; vertical-align: middle; }
-    #ui .value { display: inline-block; width: 32px; text-align: right; }
-    #status { color: #7f7; margin-top: 8px; font-size: 11px; }
-  </style>
+  <title>SisterRM - A-Frame VRM Example</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="../../aframe-vrm/dist/aframe-vrm.js"></script>
 </head>
 <body>
-  <div id="ui">
-    <h3>🎭 Expressions</h3>
-    <label>happy: <input type="range" id="expr-happy" min="0" max="1" step="0.01" value="0"><span class="value" id="val-happy">0</span></label>
-    <label>surprised: <input type="range" id="expr-surprised" min="0" max="1" step="0.01" value="0"><span class="value" id="val-surprised">0</span></label>
-    <label>blink: <input type="range" id="expr-blink" min="0" max="1" step="0.01" value="0"><span class="value" id="val-blink">0</span></label>
-    <label>aa: <input type="range" id="expr-aa" min="0" max="1" step="0.01" value="0"><span class="value" id="val-aa">0</span></label>
-    <h3>🌐 Network</h3>
-    <label>Server: <input type="text" id="server-url" value="ws://localhost:8080/ws" style="width:140px"></label>
-    <label>Room: <input type="text" id="room-id" value="demo" style="width:80px"></label>
-    <button id="btn-connect">Connect</button>
-    <div id="status">Disconnected</div>
-  </div>
+  <a-scene>
+    <!-- Lighting -->
+    <a-entity light="type: ambient; color: #BBB; intensity: 0.6"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="-1 2 1"></a-entity>
 
-  <a-scene background="color: #222" renderer="antialias: true">
-    <!-- VRM Avatar with all features -->
+    <!-- Ground -->
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7BC8A4"></a-plane>
+
+    <!-- Local avatar -->
     <a-entity
-      id="avatar"
+      id="local-avatar"
       position="0 0 -2"
       rotation="0 0 0"
       vrm-model="src: ../assets/avatar.vrm"
-      vrm-expressions=""
-      vrm-look-at="target: #look-target; type: expression"
-      vrm-spring-bone="gravity: 0 -0.5 0; stiffness: 1.0"
+      vrm-networked="server: ws://localhost:8080/ws; room: demo; userId: aframe-user-1"
     ></a-entity>
 
-    <!-- Look-at target (moves with mouse in 2D projection) -->
-    <a-entity id="look-target" position="0 1.6 -5"></a-entity>
-
-    <!-- Ground -->
-    <a-plane position="0 0 0" rotation="-90 0 0" width="50" height="50" color="#333" roughness="0.8"></a-plane>
-    <a-grid helper="" size="50" divisions="50" position="0 0.01 0" color="#555"></a-grid>
-
-    <!-- Lighting -->
-    <a-light type="ambient" color="#445" intensity="0.6"></a-light>
-    <a-light type="directional" color="#fff" intensity="1.2" position="2 4 2" cast-shadow="true"></a-light>
-    <a-light type="point" color="#f84" intensity="0.5" position="-2 2 -2"></a-light>
-
-    <!-- Camera with orbit controls (mouse drag to rotate, WASD to move) -->
+    <!-- Camera rig -->
     <a-entity position="0 1.6 2">
-      <a-camera look-controls="pointerLockEnabled: false" wasd-controls="acceleration: 10">
-        <a-cursor color="#fff" scale="0.5 0.5 0.5"></a-cursor>
-      </a-camera>
+      <a-camera look-controls wasd-controls></a-camera>
     </a-entity>
   </a-scene>
 
   <script>
-    // UI: Expression sliders
-    const expressions = ['happy', 'surprised', 'blink', 'aa'];
-    const avatar = document.getElementById('avatar');
+    // Simple UI overlay
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.7);color:white;padding:10px;font-family:monospace;z-index:9999;';
+    div.innerHTML = `
+      <div><b>SisterRM A-Frame Demo</b></div>
+      <div>Server: ws://localhost:8080/ws</div>
+      <div>Room: demo</div>
+      <div id="status">Connecting...</div>
+    `;
+    document.body.appendChild(div);
 
-    expressions.forEach(name => {
-      const slider = document.getElementById('expr-' + name);
-      const valDisplay = document.getElementById('val-' + name);
-      slider.addEventListener('input', () => {
-        const v = parseFloat(slider.value);
-        valDisplay.textContent = v.toFixed(2);
-        // Build expression attribute
-        const attrs = expressions.map(n => {
-          const el = document.getElementById('expr-' + n);
-          return n + ': ' + el.value;
-        }).join('; ');
-        avatar.setAttribute('vrm-expressions', attrs);
-      });
-    });
-
-    // UI: Network connect
-    let networkedComp = null;
-    document.getElementById('btn-connect').addEventListener('click', () => {
-      const server = document.getElementById('server-url').value;
-      const room = document.getElementById('room-id').value;
-      const status = document.getElementById('status');
-
-      if (networkedComp) {
-        avatar.removeAttribute('vrm-networked');
-        networkedComp = null;
-        status.textContent = 'Disconnected';
-        status.style.color = '#7f7';
-        return;
-      }
-
-      avatar.setAttribute('vrm-networked', `server: ${server}; room: ${room}; userId: web-player-${Math.floor(Math.random()*1000)}`);
-      networkedComp = true;
-      status.textContent = 'Connecting to ' + server + ' ...';
-      status.style.color = '#ff7';
-
-      // Simple status feedback
-      setTimeout(() => {
-        status.textContent = 'Connected to room: ' + room;
-        status.style.color = '#7f7';
-      }, 1500);
-    });
-
-    // Mouse tracking for look-at
-    document.addEventListener('mousemove', (e) => {
-      const target = document.getElementById('look-target');
-      if (!target) return;
-      // Project mouse to a plane at z=-5
-      const x = (e.clientX / window.innerWidth) * 4 - 2;
-      const y = -(e.clientY / window.innerHeight) * 2 + 1.6;
-      target.setAttribute('position', `${x} ${y} -5`);
+    const el = document.getElementById('local-avatar');
+    el.addEventListener('model-loaded', (e) => {
+      document.getElementById('status').textContent = 'VRM loaded! Connected.';
+      console.log('VRM loaded:', e.detail.vrm);
     });
   </script>
 </body>

@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.java.websocket)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.filament.android)
+    implementation(libs.filament.gltfio)
+    implementation(libs.filament.utils)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

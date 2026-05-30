@@ -8,10 +8,10 @@ import {
   type FullStateMessage,
   type AvatarDeltaMessage,
 } from '../utils/network-client';
-import { unpackFromSSCS } from '../utils/coordinates';
 
 interface RemoteUser {
   entity: AFrameEntity;
+  vrm: VRM | null;
   targetPos: THREE.Vector3;
   targetRot: THREE.Quaternion;
   targetScale: THREE.Vector3;
@@ -22,7 +22,6 @@ interface RemoteUser {
   currentScale: THREE.Vector3;
   currentExpressions: Record<string, number>;
   currentLookAt: THREE.Vector3;
-  vrmLoaded: boolean;
 }
 
 interface VRMNetworkSystem extends AFrameSystem {
@@ -85,10 +84,9 @@ AFRAME.registerSystem('vrm-network-system', {
           }
           const remote = this.remoteUsers.get(entity.user_id);
           if (remote && entity.transform) {
-            const sscs = unpackFromSSCS(entity.transform.pos, entity.transform.rot, entity.transform.scale);
-            remote.targetPos.copy(sscs.position);
-            remote.targetRot.copy(sscs.rotation);
-            remote.targetScale.copy(sscs.scale);
+            remote.targetPos.set(...entity.transform.pos);
+            remote.targetRot.set(...entity.transform.rot);
+            remote.targetScale.set(...entity.transform.scale);
           }
           if (remote && entity.expressions) {
             Object.assign(remote.targetExpressions, entity.expressions);
@@ -117,6 +115,7 @@ AFRAME.registerSystem('vrm-network-system', {
 
     const remote: RemoteUser = {
       entity,
+      vrm: null,
       targetPos: new THREE.Vector3(),
       targetRot: new THREE.Quaternion(),
       targetScale: new THREE.Vector3(1, 1, 1),
@@ -127,11 +126,11 @@ AFRAME.registerSystem('vrm-network-system', {
       currentScale: new THREE.Vector3(1, 1, 1),
       currentExpressions: {},
       currentLookAt: new THREE.Vector3(0, 0, 1),
-      vrmLoaded: false,
     };
 
-    entity.addEventListener('model-loaded', () => {
-      remote.vrmLoaded = true;
+    entity.addEventListener('model-loaded', (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      remote.vrm = detail.vrm;
     });
 
     this.remoteUsers.set(userId, remote);
@@ -151,10 +150,9 @@ AFRAME.registerSystem('vrm-network-system', {
     }
     const remote = this.remoteUsers.get(userId)!;
     if (delta.transform) {
-      const sscs = unpackFromSSCS(delta.transform.pos, delta.transform.rot, delta.transform.scale);
-      remote.targetPos.copy(sscs.position);
-      remote.targetRot.copy(sscs.rotation);
-      remote.targetScale.copy(sscs.scale);
+      remote.targetPos.set(...delta.transform.pos);
+      remote.targetRot.set(...delta.transform.rot);
+      remote.targetScale.set(...delta.transform.scale);
     }
     if (delta.expressions) {
       Object.assign(remote.targetExpressions, delta.expressions);
@@ -183,22 +181,21 @@ AFRAME.registerSystem('vrm-network-system', {
       remote.currentLookAt.lerp(remote.targetLookAt, lerpFactor);
 
       // Apply expressions and lookAt if VRM is loaded
-      if (remote.vrmLoaded) {
-        const vrmModel = remote.entity.components['vrm-model'] as { vrm?: VRM } | undefined;
-        const vrm = vrmModel?.vrm;
-        if (vrm) {
-          if (vrm.expressionManager) {
-            for (const [name, targetValue] of Object.entries(remote.targetExpressions)) {
-              const current = remote.currentExpressions[name] ?? 0;
-              const next = current + (targetValue - current) * lerpFactor;
-              remote.currentExpressions[name] = next;
-              vrm.expressionManager.setValue(name, next);
-            }
-          }
-          if (vrm.lookAt) {
-            vrm.lookAt.lookAt(remote.currentLookAt);
+      if (remote.vrm) {
+        const vrm = remote.vrm;
+        if (vrm.expressionManager) {
+          for (const [name, targetValue] of Object.entries(remote.targetExpressions)) {
+            const current = remote.currentExpressions[name] ?? 0;
+            const next = current + (targetValue - current) * lerpFactor;
+            remote.currentExpressions[name] = next;
+            vrm.expressionManager.setValue(name, next);
           }
         }
+        if (vrm.lookAt) {
+          vrm.lookAt.lookAt(remote.currentLookAt);
+        }
+        // Update VRM itself (spring bones, constraints, materials)
+        vrm.update(dt);
       }
     }
   },
