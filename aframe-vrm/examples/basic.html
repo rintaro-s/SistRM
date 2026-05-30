@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>A-Frame VRM Example</title>
+  <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  <script src="../dist/aframe-vrm.js"></script>
+</head>
+<body>
+  <a-scene>
+    <!-- Basic VRM avatar -->
+    <a-entity
+      position="0 0 -2"
+      vrm-model="src: /assets/avatar.vrm"
+      vrm-expressions="happy: 0.2; surprised: 0.0"
+      vrm-look-at="target: #camera; type: expression"
+      vrm-spring-bone="gravity: 0 -1 0; stiffness: 1.0"
+    ></a-entity>
+
+    <!-- Networked VRM avatar -->
+    <a-entity
+      id="player"
+      position="0 0 -1"
+      vrm-model="src: /assets/avatar.vrm"
+      vrm-expressions="happy: 0"
+      vrm-look-at="target: #camera"
+      vrm-spring-bone="gravity: 0 -1 0; stiffness: 1.0"
+      vrm-networked="server: wss://example.com/vrm; room: lobby; userId: user-1"
+    ></a-entity>
+
+    <!-- Camera / LookAt target -->
+    <a-entity id="camera" position="0 1.6 0">
+      <a-camera look-controls="pointerLockEnabled: false" wasd-controls></a-camera>
+    </a-entity>
+
+    <!-- Environment -->
+    <a-sky color="#87CEEB"></a-sky>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7BC8A4"></a-plane>
+    <a-light type="ambient" color="#BBB"></a-light>
+    <a-light type="directional" color="#FFF" intensity="0.6" position="-0.5 1 1"></a-light>
+  </a-scene>
+</body>
+</html>

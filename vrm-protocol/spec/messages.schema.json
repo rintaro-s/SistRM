@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VRM Protocol Messages",
+  "description": "WebSocket message protocol for SisterRM metaverse server",
+  "oneOf": [
+    { "$ref": "#/definitions/JoinRoomMessage" },
+    { "$ref": "#/definitions/LeaveRoomMessage" },
+    { "$ref": "#/definitions/AvatarDeltaMessage" },
+    { "$ref": "#/definitions/FullStateMessage" },
+    { "$ref": "#/definitions/RoomEventMessage" },
+    { "$ref": "#/definitions/HeartbeatMessage" },
+    { "$ref": "#/definitions/ErrorMessage" }
+  ],
+  "definitions": {
+    "JoinRoomMessage": {
+      "type": "object",
+      "required": ["type", "room_id", "user_id"],
+      "properties": {
+        "type": { "const": "join_room" },
+        "room_id": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string" },
+        "avatar_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "LeaveRoomMessage": {
+      "type": "object",
+      "required": ["type", "room_id", "user_id"],
+      "properties": {
+        "type": { "const": "leave_room" },
+        "room_id": { "type": "string" },
+        "user_id": { "type": "string" }
+      }
+    },
+    "AvatarDeltaMessage": {
+      "type": "object",
+      "required": ["type", "user_id", "timestamp"],
+      "properties": {
+        "type": { "const": "avatar_delta" },
+        "user_id": { "type": "string" },
+        "timestamp": { "type": "integer", "description": "Unix timestamp in milliseconds" },
+        "transform": { "$ref": "#/definitions/Transform" },
+        "expressions": {
+          "type": "object",
+          "description": "Expression name -> weight (0.0 to 1.0)",
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "bone_rotations": {
+          "type": "object",
+          "description": "Bone name -> quaternion [x, y, z, w]",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "look_at": {
+          "type": "array",
+          "description": "Look-at target position [x, y, z]",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "springbone_params": { "$ref": "#/definitions/SpringBoneParams" }
+      }
+    },
+    "FullStateMessage": {
+      "type": "object",
+      "required": ["type", "room_id", "entities"],
+      "properties": {
+        "type": { "const": "full_state" },
+        "room_id": { "type": "string" },
+        "entities": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/EntityState" }
+        }
+      }
+    },
+    "RoomEventMessage": {
+      "type": "object",
+      "required": ["type", "event_type"],
+      "properties": {
+        "type": { "const": "room_event" },
+        "event_type": {
+          "type": "string",
+          "enum": ["chat", "rpc", "user_joined", "user_left", "interaction"]
+        },
+        "payload": { "type": "object" }
+      }
+    },
+    "HeartbeatMessage": {
+      "type": "object",
+      "required": ["type", "timestamp"],
+      "properties": {
+        "type": { "const": "heartbeat" },
+        "timestamp": { "type": "integer" }
+      }
+    },
+    "ErrorMessage": {
+      "type": "object",
+      "required": ["type", "code", "message"],
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "type": "string" },
+        "message": { "type": "string" }
+      }
+    },
+    "EntityState": {
+      "type": "object",
+      "required": ["user_id"],
+      "properties": {
+        "user_id": { "type": "string" },
+        "display_name": { "type": "string" },
+        "avatar_url": { "type": "string" },
+        "transform": { "$ref": "#/definitions/Transform" },
+        "expressions": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "bone_rotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "look_at": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "springbone_params": { "$ref": "#/definitions/SpringBoneParams" }
+      }
+    },
+    "Transform": {
+      "type": "object",
+      "required": ["pos", "rot", "scale"],
+      "properties": {
+        "pos": {
+          "type": "array",
+          "description": "Position [x, y, z]",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rot": {
+          "type": "array",
+          "description": "Rotation quaternion [x, y, z, w]",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "scale": {
+          "type": "array",
+          "description": "Scale [x, y, z]",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "SpringBoneParams": {
+      "type": "object",
+      "properties": {
+        "gravity": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "wind": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "stiffness": { "type": "number" }
+      }
+    }
+  }
+}

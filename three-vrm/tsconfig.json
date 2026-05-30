@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "es6",
+    "lib": ["es2019", "dom"],
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@pixiv/three-vrm": ["./packages/three-vrm"],
+      "three/addons/*": ["./node_modules/@types/three/examples/jsm/*"]
+    }
+  }
+}

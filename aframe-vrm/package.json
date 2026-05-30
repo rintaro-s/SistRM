@@ -1,0 +1,28 @@
+{
+  "name": "aframe-vrm",
+  "version": "1.0.0",
+  "description": "A-Frame components for VRM avatars with metaverse sync",
+  "main": "dist/aframe-vrm.js",
+  "types": "dist/aframe-vrm.d.ts",
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.0.0",
+    "three": "^0.160.0",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/three": "^0.184.1",
+    "rollup": "^4.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "aframe": ">=1.4.0"
+  }
+}
