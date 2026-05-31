@@ -227,6 +227,27 @@ func get_expression_names() -> Array:
 	return _expression_bindings.keys()
 
 
+func get_bone_names() -> Array:
+	var names := []
+	if _bone_map != null and _bone_map.profile != null:
+		for i in range(_bone_map.profile.bone_size):
+			var bone_name := _bone_map.profile.get_bone_name(i)
+			if not bone_name.is_empty():
+				names.append(bone_name)
+	return names
+
+
+func get_vrm_meta() -> Dictionary:
+	if _vrm_top != null and _vrm_top.vrm_meta != null:
+		return {
+			"title": _vrm_top.vrm_meta.title,
+			"version": _vrm_top.vrm_meta.version,
+			"author": _vrm_top.vrm_meta.author,
+			"license": _vrm_top.vrm_meta.license_url
+		}
+	return {}
+
+
 # ==================== Look-At System ====================
 
 func _detect_look_at_type() -> String:
@@ -351,15 +372,47 @@ func reset_all_bones() -> void:
 # ==================== Spring Bone ====================
 
 func get_spring_bone_count() -> int:
-	if _vrm_top == null:
-		return 0
-	return _vrm_top.spring_bones.size()
+	if _secondary != null:
+		return _secondary.spring_bones.size()
+	return 0
 
 
-func set_spring_bone_gravity(dir: Vector3, power: float) -> void:
+func set_spring_bone_gravity(direction: Vector3, power: float) -> void:
 	if _vrm_top != null:
-		_vrm_top.springbone_gravity_rotation = Quaternion.from_euler(dir)
+		_vrm_top.springbone_gravity_rotation = Quaternion.from_euler(direction)
 		_vrm_top.springbone_gravity_multiplier = power
+
+
+func set_spring_bone_stiffness(stiffness: float) -> void:
+	# Iterate through VRMSecondary spring bones and set stiffness
+	if _secondary != null:
+		for spring_bone in _secondary.spring_bones:
+			if spring_bone.has_method("set_stiffness"):
+				spring_bone.set_stiffness(stiffness)
+
+
+func apply_constraints() -> void:
+	# Apply node constraints from VRM 1.0
+	# This is a placeholder — constraints are not fully supported in godot-vrm addon
+	pass
+
+
+func load_vrma(path: String) -> void:
+	# Load VRMA animation file
+	# Use GLTFDocument to load the animation
+	var gltf := GLTFDocument.new()
+	var state := GLTFState.new()
+	var err := gltf.append_from_file(path, state)
+	if err == OK:
+		var scene := gltf.generate_scene(state)
+		if scene:
+			var anim_player := scene.get_node_or_null("AnimationPlayer") as AnimationPlayer
+			if anim_player:
+				var new_player := AnimationPlayer.new()
+				add_child(new_player)
+				for anim_name in anim_player.get_animation_list():
+					new_player.add_animation(anim_name, anim_player.get_animation(anim_name))
+				new_player.play(anim_player.get_animation_list()[0])
 
 
 # ==================== Network State ====================
@@ -375,6 +428,16 @@ func get_network_state() -> Dictionary:
 		if not is_zero_approx(val):
 			expressions[name] = val
 
+	var bone_rots := {}
+	if _bone_map != null and _skeleton != null:
+		for i in range(_bone_map.profile.bone_size):
+			var bone_name := _bone_map.profile.get_bone_name(i)
+			if bone_name.is_empty():
+				continue
+			var idx := _find_humanoid_bone(bone_name)
+			if idx >= 0:
+				var bquat := _skeleton.get_bone_pose_rotation(idx)
+				bone_rots[bone_name] = [bquat.x, bquat.y, bquat.z, bquat.w]
 	return {
 		"transform": {
 			"pos": [pos.x, pos.y, pos.z],
@@ -383,7 +446,7 @@ func get_network_state() -> Dictionary:
 		},
 		"expressions": expressions,
 		"look_at": [_look_at_target.x, _look_at_target.y, _look_at_target.z],
-		"bone_rotations": {},
+		"bone_rotations": bone_rots,
 	}
 
 
@@ -404,6 +467,12 @@ func apply_network_state(state: Dictionary) -> void:
 	var look_at_arr: Array = state.get("look_at", [])
 	if look_at_arr.size() >= 3:
 		_look_at_target = Vector3(look_at_arr[0], look_at_arr[1], look_at_arr[2])
+
+	var bone_rots: Dictionary = state.get("bone_rotations", {})
+	for bone_name in bone_rots.keys():
+		var arr: Array = bone_rots[bone_name]
+		if arr.size() == 4:
+			set_bone_rotation(bone_name, Quaternion(arr[0], arr[1], arr[2], arr[3]))
 
 
 # ==================== Process Loop ====================

@@ -40,6 +40,10 @@ const vrm_collider = preload("./vrm_collider.gd")
 # The radius of the sphere used for the collision detection with colliders.
 @export var hit_radius: PackedFloat64Array
 
+func set_stiffness(stiffness: float) -> void:
+	stiffness_scale = stiffness
+
+
 @export_group("Frame of Reference Node")
 # The reference point of a swaying object can be set at any location except the origin.
 # When implementing UI moving with warp, the parent node to move with warp can be

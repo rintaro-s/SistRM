@@ -1,110 +1,148 @@
-- [日本語](README.ja.md)
+# SisterRM Godot VRM Runtime
 
-# VRM addon for Godot Engine
+Godot 4.2 VRM runtime with networked avatar support, spring-bone control, expression system, and Android export presets.
 
-This Godot addon fully implements an importer and exporter for models with the [VRM specification](https://github.com/vrm-c/vrm-specification/tree/master/specification).
-Compatible with Godot Engine 4.0 stable or newer.
+## Opening the Project
 
-Proudly brought to you by the [V-Sekai team](https://v-sekai.org/about).
+1. Install [Godot 4.2+](https://godotengine.org/).
+2. Open Godot and click **Import**.
+3. Select the `godot-vrm/project.godot` file.
+4. The project loads with the VRM addon enabled.
 
-This package also includes a standalone full implementation of the MToon Shader for Godot Engine.
+## Scenes
 
-![Example of VRM Addon used to import two example characters](vrm_samples/screenshot/vrm_sample_screenshot.png)
+- `vrm_samples/sample_scene.tscn` — Desktop demo with 3 avatars.
+- `vrm_samples/mobile_scene.tscn` — Touch-friendly mobile demo with a single avatar, on-screen joystick, expression buttons, bone pose sliders, and network controls.
 
-## What is VRM?
+## Exporting to Android
 
-See [https://vrm.dev/en/](https://vrm.dev/en/) (English) or [https://vrm.dev/](https://vrm.dev/) (日本語)
+1. In Godot, go to **Project → Export**.
+2. The **Android** preset is already configured in `export_presets.cfg`:
+   - Min SDK: 33
+   - Target SDK: 36
+   - `INTERNET` permission enabled
+3. Install the Android build template if prompted (**Project → Install Android Build Template**).
+4. Click **Export Project** or **Export PCK/ZIP**.
 
-"VRM" is a file format for handling 3D humanoid avatar (3D model) data for VR applications.
-It is based on [glTF 2.0](https://www.khronos.org/gltf/). Anyone is free to use it.
+## SisterRMRuntime API
 
-## VRM Features are currently supported in Godot Engine!
+`SisterRMRuntime` is a `Node` that attaches to a VRM scene and provides high-level control.
 
-Import and export of VRM through version 1.0 is supported. Here is a feature breakdown:
+### Initialization
 
-* VRM 0.0 Import: ✅Implemented; will convert to VRM 1.0 compatible naming!
-* VRM 1.0 Import: ✅Implemented
-* VRM Export (`.vrm`): ✅Implemented, will export all models as VRM 1.0
-* glTF Export with VRM 1.0 extensions (`.gltf`): ✅`VRMC_node_constraint`, ✅`VRMC_materials_mtoon`
-	* ⚠️ `VRMC_springBone` not supported in non-`.vrm` standalone `.gltf` export.
-	* ⚠️ Warning: When exporting `.gltf`, a clone of the scene root node is not made by Godot.
-	  Because some export operations are destructive, the export process will corrupt some of your materials.
-	  Please save the scene first and revert after export!
+```gdscript
+var runtime = SisterRMRuntime.new()
+avatar.add_child(runtime)
+runtime.init()
+```
 
-* `VRMC_materials_mtoon`: ✅Implemented
-* `VRMC_node_constraint`: ⚠️Buggy: known issues when combined with retargeting.
-* `VRMC_springBone`: ✅Implemented, but needs optimization.
-* `VRMC_materials_hdr_emissive`: ✅Implemented
-* `VRMC_vrm`: ✅Implemented
-	* `firstPerson`: ⚠️Head hiding implemented and supported as an import option (camera layers or runtime script needed)
-	* `eyeOffset`: ✅I️mplemented (`BoneAttachment3D` `"LookOffset"` on `Head`)
-	* `lookAt`: ⚠Only creates animation tracks (application must create `BlendSpace2D`)
-	* `expressions` (mood, viseme):
-		* blend shapes / binds: ✅I️mplemented (Animation tracks intended for `BlendTree` `Add2`)
-		* material color / UV offsets: ✅I️mplemented (Animation tracks intended for `BlendTree` `Add2`)
-	* `humanoid`: ✅I️mplemented (uses `%GeneralSkeleton` `SkeletonProfileHumanoid` compatible retargeting.)
-	* Metadata: ✅I️mplemented, including License information and screenshot
+### Expressions
 
-## Future work
+```gdscript
+runtime.set_expression("happy", 1.0)
+var val = runtime.get_expression("happy")
+runtime.reset_expressions()
+var names = runtime.get_expression_names()
+```
 
-* Support VRMC_vrm_animation:
-	* Not yet implemented. Intended use: humanoid AnimationLibrary import/export.
+### Look-At
 
-## A note about SkeletonModifier3D on Godot 4.3 and later.
+```gdscript
+runtime.set_look_at_target(Vector3(0, 1.5, 3))
+var target = runtime.get_look_at_target()
+```
 
-godot-vrm currently creates an internal node child of the Skeleton3D to facilitate processing the skeleton modifiers for
-VRM spring bones and node constraints.
+### Humanoid Bones
 
-Due to the behavior of skeleton modifier, there may be some differences.
-For example, on Godot 4.3+, `update_secondary_fixed` is no longer supported: instead, the Skeleton node determines whether to use physics or idle processing.
+```gdscript
+runtime.set_bone_rotation("Head", Quaternion.from_euler(Vector3(0, 0.3, 0)))
+var rot = runtime.get_bone_rotation("Head")
+runtime.reset_all_bones()
+var bone_names = runtime.get_bone_names()
+```
 
-## Head hiding settings
+### Spring Bones
 
-At import time, there are new scene import settings for .vrm files.
+```gdscript
+var count = runtime.get_spring_bone_count()
+runtime.set_spring_bone_gravity(Vector3(0, -1, 0), 1.0)
+runtime.set_spring_bone_stiffness(0.5)
+```
 
-For runtime usage, head hiding mode is determined by various additional data properties on the GLTFState object:
-`vrm/head_hiding_method` is an enum `vrm_constants.HeadHidingSetting` that determines the mode.
+### Constraints
 
-For BothLayers and BothLayersWithShadow modes, the MeshInstance3D layers are determined by the
-`vrm/first_person_layers` and `vrm/third_person_layers` integers respectively.
+```gdscript
+runtime.apply_constraints()  # Placeholder for VRM 1.0 node constraints
+```
 
-For FirstPersonOnlyWithShadow, FirstPersonOnly and ThirdPersonOnly, certain meshes are deleted or modified to make the character suitable for first person or third person usage.
+### VRMA Animation Loading
 
-Shadow modes will create an additional mesh for hidden heads set to ShadowsOnly to allow the hidden head to still cast a shadow.
-Recommended if your game has a first person mode and uses lights with shadows enabled.
+```gdscript
+runtime.load_vrma("res://animations/motion.vrma")
+```
 
-Finally, there is an IgnoreHeadHiding mode which disables handling of the firstPerson flags and acts like an ordinary glTF import.
+### Metadata
 
-## Note for users of Godot 3.x
+```gdscript
+var meta = runtime.get_vrm_meta()
+# Returns { "title": "...", "version": "...", "author": "...", "license": "..." }
+```
 
-For VRM compatible with Godot Engine 3.2.2 or later, use the `godot3` branch of this repository.
+### First-Person Mode
 
-https://github.com/V-Sekai/godot-vrm
+```gdscript
+runtime.set_first_person_enabled(true)
+var enabled = runtime.is_first_person_enabled()
+```
 
-## How to use
+## Network Protocol
 
-Install the vrm addon folder into addons/vrm. MUST NOT BE RENAMED: This path will be referenced by generated VRM meta scripts.
+The `SisterRMNetworkClient` node synchronizes avatar state over WebSocket.
 
-Install Godot-MToon-Shader into addons/Godot-MToon-Shader. MUST NOT BE RENAMED: This path is referenced by generated materials.
+### Setup
 
-Enable the VRM and MToon plugins in Project Settings -> Plugins -> VRM and Godot-MToon-Shader.
+```gdscript
+var client = SisterRMNetworkClient.new()
+runtime.add_child(client)
+client.server_url = "ws://localhost:8080/ws"
+client.room_id = "room_1"
+client.connect_to_server()
+```
 
-## Credits
+### Delta Messages (client → server)
 
-Thanks to the [V-Sekai team](https://v-sekai.org/about) and contributors:
+Sent at `update_rate_hz` (default 20 Hz). Bone rotations are included only when they change.
 
-- https://github.com/aaronfranke and [The Mirror team](https://www.themirror.space/)
-- https://github.com/fire
-- https://github.com/TokageItLab
-- https://github.com/lyuma
-- https://github.com/SaracenOne
+```json
+{
+  "type": "avatar_delta",
+  "room_id": "default",
+  "user_id": "12345",
+  "timestamp": 1717000000000,
+  "transform": {
+    "pos": [0, 0, 0],
+    "rot": [0, 0, 0, 1],
+    "scale": [1, 1, 1]
+  },
+  "expressions": { "happy": 0.8 },
+  "look_at": [0, 1.5, 3],
+  "bone_rotations": {
+    "Head": [0, 0.13, 0, 0.99]
+  }
+}
+```
 
-For their extensive help testing and contributing code to Godot-VRM.
+### Server → Client Messages
 
-Special thanks to the authors of UniVRM, MToon and other VRM tooling
+- `full_state` — Array of all entities in the room.
+- `user_joined` / `user_left` — Room membership events.
+- `avatar_delta` — Per-user state update.
 
-- The VRM Consortium ( https://github.com/vrm-c )
-- https://github.com/Santarh
-- https://github.com/ousttrue
-- https://github.com/saturday06
-- https://github.com/FMS-Cat
+### Signals
+
+```gdscript
+client.connection_established.connect(func(): print("Connected"))
+client.connection_closed.connect(func(): print("Disconnected"))
+client.user_joined.connect(func(uid, avatar): print("User joined: " + uid))
+client.user_left.connect(func(uid): print("User left: " + uid))
+```

@@ -12501,4 +12501,329 @@
         },
     });
 
+    AFRAME.registerComponent('vrm-movement', {
+        schema: {
+            speed: { type: 'number', default: 2 },
+            verticalSpeed: { type: 'number', default: 1.5 },
+            enabled: { type: 'boolean', default: true },
+            rotationSpeed: { type: 'number', default: 2 },
+        },
+        init() {
+            this.velocity = new THREE14__namespace.Vector3();
+            this.keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
+            this.mouseDown = false;
+            this.lastMouseX = 0;
+            this.lastMouseY = 0;
+            this.touchStartData = new Map();
+            this.touchYaw = 0;
+            this.touchPitch = 0;
+            this.twoFingerStartMid = null;
+            this.twoFingerStartDist = 0;
+            this.onKeyDown = (e) => {
+                switch (e.key.toLowerCase()) {
+                    case 'w':
+                        this.keys.w = true;
+                        break;
+                    case 'a':
+                        this.keys.a = true;
+                        break;
+                    case 's':
+                        this.keys.s = true;
+                        break;
+                    case 'd':
+                        this.keys.d = true;
+                        break;
+                    case 'shift':
+                        this.keys.shift = true;
+                        break;
+                    case ' ':
+                        this.keys.space = true;
+                        break;
+                }
+            };
+            this.onKeyUp = (e) => {
+                switch (e.key.toLowerCase()) {
+                    case 'w':
+                        this.keys.w = false;
+                        break;
+                    case 'a':
+                        this.keys.a = false;
+                        break;
+                    case 's':
+                        this.keys.s = false;
+                        break;
+                    case 'd':
+                        this.keys.d = false;
+                        break;
+                    case 'shift':
+                        this.keys.shift = false;
+                        break;
+                    case ' ':
+                        this.keys.space = false;
+                        break;
+                }
+            };
+            this.onMouseDown = (e) => {
+                if (!this.data.enabled)
+                    return;
+                this.mouseDown = true;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+            };
+            this.onMouseMove = (e) => {
+                if (!this.data.enabled || !this.mouseDown)
+                    return;
+                const dx = e.clientX - this.lastMouseX;
+                const dy = e.clientY - this.lastMouseY;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                const obj = this.el.object3D;
+                obj.rotation.y -= dx * 0.002 * this.data.rotationSpeed;
+                obj.rotation.x -= dy * 0.002 * this.data.rotationSpeed;
+                obj.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, obj.rotation.x));
+            };
+            this.onMouseUp = () => {
+                this.mouseDown = false;
+            };
+            this.onTouchStart = (e) => {
+                if (!this.data.enabled)
+                    return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    this.touchStartData.set(t.identifier, { x: t.clientX, y: t.clientY });
+                }
+                if (e.touches.length === 2) {
+                    const t0 = e.touches[0];
+                    const t1 = e.touches[1];
+                    this.twoFingerStartMid = {
+                        x: (t0.clientX + t1.clientX) / 2,
+                        y: (t0.clientY + t1.clientY) / 2,
+                    };
+                    const dx = t1.clientX - t0.clientX;
+                    const dy = t1.clientY - t0.clientY;
+                    this.twoFingerStartDist = Math.sqrt(dx * dx + dy * dy);
+                }
+            };
+            this.onTouchMove = (e) => {
+                if (!this.data.enabled)
+                    return;
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    const t = e.touches[0];
+                    const start = this.touchStartData.get(t.identifier);
+                    if (start) {
+                        const dx = t.clientX - start.x;
+                        const dy = t.clientY - start.y;
+                        this.touchYaw -= dx * 0.005 * this.data.rotationSpeed;
+                        this.touchPitch -= dy * 0.005 * this.data.rotationSpeed;
+                        this.touchPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.touchPitch));
+                        this.el.object3D.rotation.y = this.touchYaw;
+                        this.el.object3D.rotation.x = this.touchPitch;
+                        this.touchStartData.set(t.identifier, { x: t.clientX, y: t.clientY });
+                    }
+                }
+                else if (e.touches.length === 2) {
+                    const t0 = e.touches[0];
+                    const t1 = e.touches[1];
+                    const midX = (t0.clientX + t1.clientX) / 2;
+                    const midY = (t0.clientY + t1.clientY) / 2;
+                    const dx = t1.clientX - t0.clientX;
+                    const dy = t1.clientY - t0.clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (this.twoFingerStartMid) {
+                        const moveX = (midX - this.twoFingerStartMid.x) * 0.01 * this.data.speed;
+                        const moveY = (this.twoFingerStartDist - dist) * 0.01 * this.data.verticalSpeed;
+                        const moveZ = (midY - this.twoFingerStartMid.y) * 0.01 * this.data.speed;
+                        const right = new THREE14__namespace.Vector3(1, 0, 0).applyQuaternion(this.el.object3D.quaternion);
+                        const forward = new THREE14__namespace.Vector3(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
+                        this.el.object3D.position.add(right.multiplyScalar(moveX));
+                        this.el.object3D.position.y += moveY;
+                        this.el.object3D.position.add(forward.multiplyScalar(moveZ));
+                    }
+                    this.twoFingerStartMid = { x: midX, y: midY };
+                    this.twoFingerStartDist = dist;
+                }
+            };
+            this.onTouchEnd = (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    this.touchStartData.delete(e.changedTouches[i].identifier);
+                }
+                if (e.touches.length < 2) {
+                    this.twoFingerStartMid = null;
+                    this.twoFingerStartDist = 0;
+                }
+            };
+            this.setupKeyListeners();
+            this.setupMouseListeners();
+            this.setupTouchListeners();
+        },
+        setupKeyListeners() {
+            window.addEventListener('keydown', this.onKeyDown);
+            window.addEventListener('keyup', this.onKeyUp);
+        },
+        removeKeyListeners() {
+            window.removeEventListener('keydown', this.onKeyDown);
+            window.removeEventListener('keyup', this.onKeyUp);
+        },
+        setupMouseListeners() {
+            const canvas = this.el.sceneEl.canvas;
+            if (canvas) {
+                canvas.addEventListener('mousedown', this.onMouseDown);
+                canvas.addEventListener('mousemove', this.onMouseMove);
+                canvas.addEventListener('mouseup', this.onMouseUp);
+                canvas.addEventListener('mouseleave', this.onMouseUp);
+            }
+        },
+        removeMouseListeners() {
+            const canvas = this.el.sceneEl.canvas;
+            if (canvas) {
+                canvas.removeEventListener('mousedown', this.onMouseDown);
+                canvas.removeEventListener('mousemove', this.onMouseMove);
+                canvas.removeEventListener('mouseup', this.onMouseUp);
+                canvas.removeEventListener('mouseleave', this.onMouseUp);
+            }
+        },
+        setupTouchListeners() {
+            const canvas = this.el.sceneEl.canvas;
+            if (canvas) {
+                canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
+                canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
+                canvas.addEventListener('touchend', this.onTouchEnd);
+                canvas.addEventListener('touchcancel', this.onTouchEnd);
+            }
+        },
+        removeTouchListeners() {
+            const canvas = this.el.sceneEl.canvas;
+            if (canvas) {
+                canvas.removeEventListener('touchstart', this.onTouchStart);
+                canvas.removeEventListener('touchmove', this.onTouchMove);
+                canvas.removeEventListener('touchend', this.onTouchEnd);
+                canvas.removeEventListener('touchcancel', this.onTouchEnd);
+            }
+        },
+        remove() {
+            this.removeKeyListeners();
+            this.removeMouseListeners();
+            this.removeTouchListeners();
+        },
+        tick(_time, delta) {
+            if (!this.data.enabled)
+                return;
+            const dt = delta / 1000;
+            // XZ movement relative to entity's Y rotation
+            const obj = this.el.object3D;
+            const yawQ = new THREE14__namespace.Quaternion().setFromAxisAngle(new THREE14__namespace.Vector3(0, 1, 0), obj.rotation.y);
+            const forward = new THREE14__namespace.Vector3(0, 0, -1).applyQuaternion(yawQ);
+            const right = new THREE14__namespace.Vector3(1, 0, 0).applyQuaternion(yawQ);
+            const move = new THREE14__namespace.Vector3();
+            if (this.keys.w)
+                move.add(forward);
+            if (this.keys.s)
+                move.sub(forward);
+            if (this.keys.a)
+                move.sub(right);
+            if (this.keys.d)
+                move.add(right);
+            move.normalize().multiplyScalar(this.data.speed * dt);
+            // Vertical
+            if (this.keys.space)
+                move.y += this.data.verticalSpeed * dt;
+            if (this.keys.shift)
+                move.y -= this.data.verticalSpeed * dt;
+            obj.position.add(move);
+        },
+    });
+
+    AFRAME.registerComponent('vrm-expressions', {
+        schema: {
+            happy: { type: 'number', default: 0 },
+            angry: { type: 'number', default: 0 },
+            sad: { type: 'number', default: 0 },
+            surprised: { type: 'number', default: 0 },
+            relaxed: { type: 'number', default: 0 },
+            blink: { type: 'number', default: 0 },
+            blinkLeft: { type: 'number', default: 0 },
+            blinkRight: { type: 'number', default: 0 },
+        },
+        dependencies: ['vrm-model'],
+        init() {
+            this._vrm = null;
+            this.el.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                this._vrm = detail.vrm;
+                this.applyExpressions();
+            });
+        },
+        update() {
+            this.applyExpressions();
+        },
+        applyExpressions() {
+            if (!this._vrm?.expressionManager)
+                return;
+            for (const [name, value] of Object.entries(this.data)) {
+                if (typeof value === 'number') {
+                    this._vrm.expressionManager.setValue(name, value);
+                }
+            }
+        },
+    });
+
+    AFRAME.registerComponent('vrm-look-at', {
+        schema: {
+            target: { type: 'selector', default: '[camera]' },
+            type: { type: 'string', default: 'expression' },
+            enabled: { type: 'boolean', default: true },
+        },
+        dependencies: ['vrm-model'],
+        init() {
+            this._vrm = null;
+            this.el.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                this._vrm = detail.vrm;
+            });
+        },
+        tick() {
+            if (!this._vrm || !this.data.enabled)
+                return;
+            const target = this.data.target;
+            if (!target)
+                return;
+            const targetPos = new THREE14__namespace.Vector3();
+            target.object3D.getWorldPosition(targetPos);
+            if (this._vrm.lookAt) {
+                this._vrm.lookAt.lookAt(targetPos);
+            }
+        },
+    });
+
+    AFRAME.registerComponent('vrm-spring-bone', {
+        schema: {
+            gravity: { type: 'vec3', default: { x: 0, y: -1, z: 0 } },
+            stiffness: { type: 'number', default: 1.0 },
+            enabled: { type: 'boolean', default: true },
+        },
+        dependencies: ['vrm-model'],
+        init() {
+            this._vrm = null;
+            this._storedGravity = null;
+            this._storedStiffness = null;
+            this.el.addEventListener('model-loaded', (e) => {
+                const detail = e.detail;
+                this._vrm = detail.vrm;
+                this.applyOverrides();
+            });
+        },
+        update() {
+            this.applyOverrides();
+        },
+        applyOverrides() {
+            if (!this._vrm)
+                return;
+            // @pixiv/three-vrm doesn't expose direct spring bone control in the public API.
+            // Store values for future custom spring bone implementations or runtime patching.
+            this._storedGravity = this.data.gravity;
+            this._storedStiffness = this.data.stiffness;
+        },
+    });
+
 }));

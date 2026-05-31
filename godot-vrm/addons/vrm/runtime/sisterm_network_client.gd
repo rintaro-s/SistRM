@@ -15,6 +15,7 @@ var _timer: Timer = null
 var _runtime: SisterRMRuntime = null
 var _remote_avatars: Dictionary = {}  # user_id -> {runtime: SisterRMRuntime, node: Node3D}
 var _connected: bool = false
+var _last_bone_rotations: Dictionary = {}
 
 signal user_joined(user_id: String, avatar: Node3D)
 signal user_left(user_id: String)
@@ -96,11 +97,27 @@ func _send_join_room() -> void:
 	})
 
 
+func send_bone_rotations(bone_rotations: Dictionary) -> void:
+	if not _connected:
+		return
+	_send_json({
+		"type": "bone_rotations",
+		"room_id": room_id,
+		"user_id": user_id,
+		"bone_rotations": bone_rotations,
+	})
+
+
 func _on_timer_timeout() -> void:
 	if not _connected or _runtime == null:
 		return
 	var state := _runtime.get_network_state()
-	_send_json({
+	var bone_rots: Dictionary = state.get("bone_rotations", {})
+	var include_bones := false
+	if bone_rots != _last_bone_rotations:
+		_last_bone_rotations = bone_rots.duplicate(true)
+		include_bones = true
+	var delta := {
 		"type": "avatar_delta",
 		"room_id": room_id,
 		"user_id": user_id,
@@ -108,8 +125,9 @@ func _on_timer_timeout() -> void:
 		"transform": state.transform,
 		"expressions": state.expressions,
 		"look_at": state.look_at,
-		"bone_rotations": {},
-	})
+		"bone_rotations": bone_rots if include_bones else {},
+	}
+	_send_json(delta)
 
 
 func _send_json(data: Dictionary) -> void:
@@ -219,6 +237,10 @@ func _apply_remote_delta(uid: String, data: Dictionary) -> void:
 	var look_at: Array = data.get("look_at", [])
 	if look_at.size() >= 3:
 		state["look_at"] = look_at
+
+	var bone_rots: Dictionary = data.get("bone_rotations", {})
+	if not bone_rots.is_empty():
+		state["bone_rotations"] = bone_rots
 
 	runtime.apply_network_state(state)
 
