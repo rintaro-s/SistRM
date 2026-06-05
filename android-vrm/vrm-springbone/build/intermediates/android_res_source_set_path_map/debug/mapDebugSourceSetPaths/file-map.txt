@@ -1,0 +1,9 @@
+com.sisterm.vrm.springbone.vrm-springbone-pngs-0 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/generated/res/pngs/debug
+com.sisterm.vrm.springbone.vrm-springbone-updated_navigation_xml-1 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/generated/updated_navigation_xml/debug
+com.sisterm.vrm.springbone.vrm-springbone-mergeDebugResources-2 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
+com.sisterm.vrm.springbone.vrm-springbone-mergeDebugResources-3 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
+com.sisterm.vrm.springbone.vrm-springbone-debug-4 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/intermediates/merged_res/debug/mergeDebugResources
+com.sisterm.vrm.springbone.vrm-springbone-debug-5 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/build/intermediates/packaged_res/debug/packageDebugResources
+com.sisterm.vrm.springbone.vrm-springbone-debug-6 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/src/debug/res
+com.sisterm.vrm.springbone.vrm-springbone-main-7 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-springbone/src/main/res
+gradleHome-0 /home/rinta/.gradle

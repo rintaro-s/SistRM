@@ -205,7 +205,7 @@ func _parse_expressions_from_animations() -> void:
 					else:
 						binding.bind_type = "texture_transform"
 						binding.property_path = full_subnames
-			_bindings[anim_name] = bindings
+			_expression_bindings[anim_name] = bindings
 			_expression_values[anim_name] = 0.0
 
 
@@ -438,6 +438,18 @@ func get_network_state() -> Dictionary:
 			if idx >= 0:
 				var bquat := _skeleton.get_bone_pose_rotation(idx)
 				bone_rots[bone_name] = [bquat.x, bquat.y, bquat.z, bquat.w]
+
+	var spring_bone_params := {
+		"gravity": [
+			_vrm_top.springbone_gravity_rotation.get_euler().x,
+			_vrm_top.springbone_gravity_rotation.get_euler().y,
+			_vrm_top.springbone_gravity_rotation.get_euler().z,
+		],
+		"gravity_power": _vrm_top.springbone_gravity_multiplier,
+	}
+
+	var material_params := {}
+
 	return {
 		"transform": {
 			"pos": [pos.x, pos.y, pos.z],
@@ -447,6 +459,8 @@ func get_network_state() -> Dictionary:
 		"expressions": expressions,
 		"look_at": [_look_at_target.x, _look_at_target.y, _look_at_target.z],
 		"bone_rotations": bone_rots,
+		"spring_bone_params": spring_bone_params,
+		"material_params": material_params,
 	}
 
 
@@ -473,6 +487,19 @@ func apply_network_state(state: Dictionary) -> void:
 		var arr: Array = bone_rots[bone_name]
 		if arr.size() == 4:
 			set_bone_rotation(bone_name, Quaternion(arr[0], arr[1], arr[2], arr[3]))
+
+	var sb_params: Dictionary = state.get("spring_bone_params", {})
+	if not sb_params.is_empty():
+		var grav_arr: Array = sb_params.get("gravity", [])
+		if grav_arr.size() >= 3:
+			_vrm_top.springbone_gravity_rotation = Basis.from_euler(Vector3(grav_arr[0], grav_arr[1], grav_arr[2]))
+		if sb_params.has("gravity_power"):
+			_vrm_top.springbone_gravity_multiplier = float(sb_params["gravity_power"])
+
+	var mat_params: Dictionary = state.get("material_params", {})
+	if not mat_params.is_empty():
+		# Material params are renderer-specific; store for future use
+		pass
 
 
 # ==================== Process Loop ====================

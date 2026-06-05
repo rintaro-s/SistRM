@@ -98,14 +98,9 @@ func _send_join_room() -> void:
 
 
 func send_bone_rotations(bone_rotations: Dictionary) -> void:
-	if not _connected:
-		return
-	_send_json({
-		"type": "bone_rotations",
-		"room_id": room_id,
-		"user_id": user_id,
-		"bone_rotations": bone_rotations,
-	})
+	# Bone rotations are sent as part of avatar_delta, not a separate message
+	# This method is kept for API compatibility but does nothing on its own
+	pass
 
 
 func _on_timer_timeout() -> void:

@@ -11721,9 +11721,11 @@
         dependencies: ['vrm-model'],
         init() {
             this._vrm = null;
+            this._initialized = false;
             this.el.addEventListener('model-loaded', (e) => {
                 const detail = e.detail;
                 this._vrm = detail.vrm;
+                this._initialized = false;
                 this.updateFirstPerson();
             });
         },
@@ -11736,10 +11738,10 @@
             const fp = this._vrm.firstPerson;
             if (!fp)
                 return;
+            if (typeof fp.setup !== 'function')
+                return;
             if (this.data.enabled) {
-                // In first-person mode, hide meshes that should not be visible
-                // VRMFirstPerson has mesh annotations that control visibility
-                fp.setup({ firstPersonOnlyLayer: 1 });
+                fp.setup({ firstPersonOnlyLayer: 2 });
             }
             else {
                 fp.setup({ firstPersonOnlyLayer: 0 });
@@ -12788,6 +12790,8 @@
             const target = this.data.target;
             if (!target)
                 return;
+            if (!target.object3D)
+                return;
             const targetPos = new THREE14__namespace.Vector3();
             target.object3D.getWorldPosition(targetPos);
             if (this._vrm.lookAt) {
@@ -12819,10 +12823,18 @@
         applyOverrides() {
             if (!this._vrm)
                 return;
-            // @pixiv/three-vrm doesn't expose direct spring bone control in the public API.
-            // Store values for future custom spring bone implementations or runtime patching.
-            this._storedGravity = this.data.gravity;
-            this._storedStiffness = this.data.stiffness;
+            const { gravity, stiffness } = this.data;
+            this._storedGravity = new THREE14__namespace.Vector3(gravity.x, gravity.y, gravity.z);
+            this._storedStiffness = stiffness;
+            const sbm = this._vrm.springBoneManager;
+            if (!sbm)
+                return;
+            const gravityPower = Math.abs(gravity.y);
+            for (const group of sbm.springBones) {
+                group.gravityDir.set(gravity.x, gravity.y, gravity.z);
+                group.gravityPower = gravityPower;
+                group.stiffnessForce = stiffness;
+            }
         },
     });
 

@@ -12,45 +12,96 @@ SisterRM/
 ├── vrm-protocol/        # Shared protocol spec (JSON Schema)
 ├── aframe-vrm/          # A-Frame components wrapping @pixiv/three-vrm
 ├── godot-vrm/           # Godot VRM addon + SisterRM runtime wrapper
-├── android-vrm/         # Kotlin parser + network client (reference)
+├── android-vrm/         # Kotlin native VRM library
+│   ├── vrm-loader/      # glTF 2.0 + VRM 0.0/1.0 JSON parsing
+│   ├── vrm-core/        # Math (Vector3, Quaternion, Matrix4) + CoordinateConverter
+│   ├── vrm-filament/    # **VRMController API** — load & control VRM via Filament
+│   ├── vrm-network/     # WebSocket client for vrm-server sync
+│   ├── vrm-springbone/  # Spring bone physics simulation
+│   ├── vrm-constraint/  # Node constraints (Aim, Roll, Rotation)
+│   ├── vrm-lookat/      # Look-at system (bone + expression modes)
+│   ├── vrm-material/    # MToon material parameter access
+│   └── vrm-sample/      # Minimal sample app
 ├── example/
-│   ├── Android-app/     # Working Android demo with Filament renderer
+│   ├── Android-app/     # Full demo: expressions, bones, first-person, API examples
 │   ├── web/             # A-Frame demo HTML
+│   ├── godot/           # Godot demo scene
 │   └── assets/          # avatar.vrm (VRM 1.0)
 ├── UniVRM/              # Unity reference implementation (upstream)
 └── three-vrm/           # Web reference implementation (upstream)
 ```
 
-## Architecture Philosophy: Library-First
+## Architecture Philosophy: Native VRM Control
 
-**Do not reimplement VRM runtime logic.** Every platform already has a mature,
-battle-tested VRM library. SisterRM wraps and extends these libraries with
-network synchronization.
+The core value of VRM is **native runtime control** — expressions, humanoid bones,
+first-person, look-at, spring bones, materials. SisterRM provides a unified API
+for all of these on every platform.
 
-| Platform | Rendering Library | VRM Library | SisterRM Layer |
-|----------|-------------------|-------------|----------------|
-| **Godot** | Godot 4 Renderer | godot-vrm addon | `SisterRMRuntime` wrapper + `SisterRMNetworkClient` |
-| **A-Frame** | Three.js WebGL | @pixiv/three-vrm | `vrm-model` + `vrm-networked` components |
-| **Android** | Google Filament | gltfio + custom VRM mapping | `VRMFilamentRenderer` + `VRMNetworkClient` |
+| Platform | Rendering | VRM Library | SisterRM Control API |
+|----------|-----------|-------------|----------------------|
+| **Android** | Google Filament | android-vrm | `VRMController` — expressions, bones, first-person, look-at |
+| **Godot** | Godot 4 Renderer | godot-vrm addon | `SisterRMRuntime` — expressions, bones, first-person, spring bones |
+| **A-Frame** | Three.js WebGL | @pixiv/three-vrm | `vrm-model` + `vrm-expressions` + `vrm-look-at` |
+
+## Android Library (Kotlin)
+
+### VRMController API
+
+The heart of the Android library is `VRMController` — a single interface for
+loading and controlling any VRM avatar.
+
+```kotlin
+// 1. Create controller
+val vrm = VRMFilamentController(surfaceView, assetManager)
+
+// 2. Load VRM
+vrm.loadVrm("avatar.vrm")
+
+// 3. Control expressions
+vrm.setExpression("happy", 0.8f)
+vrm.setExpression("blink", 1.0f)
+
+// 4. Pose bones (euler angles in radians, delta from bind pose)
+vrm.setBoneRotation("head", 0.2f, 0.1f, 0f)
+vrm.setBoneRotation("leftUpperArm", 0f, 0f, 0.5f)
+
+// 5. Toggle first-person mode
+vrm.firstPersonEnabled = true
+
+// 6. Move the avatar
+vrm.setPosition(0f, 0f, -2f)
+vrm.setRotation(0f, 0.5f, 0f)
+
+// 7. Reset
+vrm.resetExpressions()
+vrm.resetAllBones()
+```
+
+### Library Modules
+
+| Module | Purpose |
+|--------|---------|
+| `vrm-loader` | Parse glTF JSON + VRM 0.0/1.0 extensions |
+| `vrm-core` | Vector3, Quaternion, Matrix4, CoordinateConverter (SSCS) |
+| `vrm-filament` | **VRMController** — the main API for controlling VRM |
+| `vrm-network` | WebSocket client with auto-reconnect |
+| `vrm-springbone` | Verlet integration spring bone physics |
+| `vrm-constraint` | Node constraints (Aim, Roll, Rotation) |
+| `vrm-lookat` | Look-at calculations (bone + expression modes) |
+| `vrm-material` | MToon material parameter extraction |
 
 ## Platform Libraries
 
 ### godot-vrm (GDScript)
 
-Wraps the existing [godot-vrm addon](https://github.com/V-Sekai/godot-vrm) with a thin `SisterRMRuntime` node.
-
-- **Expression control**: Reads/writes blend shapes and material values via the addon's `AnimationPlayer`
-- **Humanoid bones**: Direct `Skeleton3D` access via `BoneMap`
-- **Look-at**: Bone and expression modes
-- **Spring bone**: Gravity and multiplier control
-- **First-person**: Head mesh visibility toggle
-- **Network**: `SisterRMNetworkClient` WebSocket node
+Wraps the existing [godot-vrm addon](https://github.com/V-Sekai/godot-vrm) with `SisterRMRuntime`.
 
 ```gdscript
 var runtime = SisterRMRuntime.new()
 vrm.add_child(runtime)
 runtime.init()
 runtime.set_expression("happy", 0.8)
+runtime.set_bone_rotation("leftUpperArm", Quaternion.from_euler(Vector3(0, 0, 0.5)))
 runtime.set_first_person_enabled(true)
 ```
 
@@ -58,34 +109,11 @@ runtime.set_first_person_enabled(true)
 
 A-Frame components built on `@pixiv/three-vrm`.
 
-- `vrm-model` — Load VRM via `GLTFLoader` + `VRMLoaderPlugin`
-- `vrm-networked` — Send/receive `avatar_delta` at 20Hz
-- `vrm-first-person` — Toggle first-person mesh visibility
-- `vrm-animation` — Load and play `.vrma` animation files
-- `vrm-system` — Tick all VRM instances each frame
-- `vrm-network-system` — Spawn remote avatars, interpolate state
-
 ```html
 <a-entity vrm-model="src: avatar.vrm"
-          vrm-networked="server: ws://localhost:8080/ws; room: demo; userId: player-1"
-          vrm-animation="src: wave.vrma">
+          vrm-expressions="happy: 0.8; blink: 1.0"
+          vrm-look-at="target: #camera">
 </a-entity>
-```
-
-### Android (Kotlin + Filament)
-
-`example/Android-app/` is a complete Compose-based demo with Google Filament rendering.
-
-- **Renderer**: `VRMFilamentRenderer` — loads GLB, drives morph targets, manages camera
-- **Expressions**: Maps parsed VRM binds to `RenderableManager.setMorphWeights()`
-- **First-person**: Hides head mesh entities based on VRM first-person annotations
-- **Network**: `VRMNetworkClient` with coordinate-aware delta sending
-
-```kotlin
-val renderer = VRMFilamentRenderer(surfaceView, assetManager)
-renderer.loadVrm("avatar.vrm", vrmData)
-renderer.setExpression("happy", 0.8f)
-renderer.setFirstPersonEnabled(true)
 ```
 
 ## Protocol
@@ -95,12 +123,11 @@ All platforms communicate via WebSocket to `vrm-server` using a shared JSON prot
 | Message | Direction | Description |
 |---------|-----------|-------------|
 | `join_room` | Client → Server | Enter a room with user_id and avatar_url |
-| `avatar_delta` | Bidirectional | Transform (pos, rot, scale), expressions, look_at |
+| `avatar_delta` | Bidirectional | Transform, expressions, look_at, bone_rotations, spring_bone_params, material_params, constraint_params |
 | `full_state` | Server → Client | Snapshot of all entities in room |
 | `user_joined` / `user_left` | Server → Client | Presence events |
 
-**Coordinate system**: SSCS (SisterRM Spatial Coordinate System) — Y-up, right-handed, meters.
-All platforms are natively Y-up right-handed, so SSCS is an identity mapping for now.
+**Coordinate system**: SSCS (SisterRM Standard Coordinate System) — Y-up, right-handed, meters.
 
 ## Building
 
@@ -115,33 +142,37 @@ go build ./...
 cd aframe-vrm
 npm install
 npm run build
-# dist/aframe-vrm.js
 ```
 
-### Android
+### Android Library
+```bash
+cd android-vrm
+./gradlew assembleDebug
+```
+
+### Android Example App
 ```bash
 cd example/Android-app
-./gradlew assembleDebug
-# app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebug
 ```
 
 ### Godot
-Import `godot-vrm/` as a Godot 4.x addon. `SisterRMRuntime` and `SisterRMNetworkClient`
-are in `addons/vrm/runtime/`.
+Import `godot-vrm/` as a Godot 4.x addon.
 
 ## Status
 
 | Feature | Godot | A-Frame | Android |
 |---------|-------|---------|---------|
-| VRM Loading | ✅ (addon importer) | ✅ (three-vrm) | ✅ (Filament gltfio) |
-| Expressions | ✅ | ✅ | ✅ (morph targets) |
-| Look-At | ✅ | ✅ | ⏳ (camera only) |
-| Humanoid Bones | ✅ | ✅ | ⏳ (transform API) |
-| Spring Bone | ✅ (addon) | ✅ (three-vrm) | ⏳ |
+| VRM Loading | ✅ | ✅ | ✅ |
+| Expressions | ✅ | ✅ | ✅ |
+| Look-At | ✅ | ✅ | ✅ |
+| Humanoid Bones | ✅ | ✅ | ✅ |
+| Spring Bone | ✅ | ✅ | ✅ (library) |
 | First-Person | ✅ | ✅ | ✅ |
 | VRMA Animation | ⏳ | ✅ | ⏳ |
 | Network Sync | ✅ | ✅ | ✅ |
-| MToon Materials | ✅ (addon) | ✅ (three-vrm) | ⏳ (PBR fallback) |
+| MToon Materials | ✅ | ✅ | ✅ (library) |
+| Node Constraints | ✅ | ✅ | ✅ (library) |
 
 ## License
 

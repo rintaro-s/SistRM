@@ -2,6 +2,7 @@ import type { VRM } from '@pixiv/three-vrm';
 
 interface VRMFirstPersonComponent extends AFrameComponent {
   _vrm: VRM | null;
+  _initialized: boolean;
   updateFirstPerson(): void;
 }
 
@@ -14,10 +15,12 @@ AFRAME.registerComponent('vrm-first-person', {
 
   init(this: VRMFirstPersonComponent): void {
     this._vrm = null;
+    this._initialized = false;
 
     this.el.addEventListener('model-loaded', (e: Event) => {
       const detail = (e as CustomEvent).detail;
       this._vrm = detail.vrm;
+      this._initialized = false;
       this.updateFirstPerson();
     });
   },
@@ -31,11 +34,10 @@ AFRAME.registerComponent('vrm-first-person', {
 
     const fp = this._vrm.firstPerson;
     if (!fp) return;
+    if (typeof fp.setup !== 'function') return;
 
     if (this.data.enabled) {
-      // In first-person mode, hide meshes that should not be visible
-      // VRMFirstPerson has mesh annotations that control visibility
-      fp.setup({ firstPersonOnlyLayer: 1 });
+      fp.setup({ firstPersonOnlyLayer: 2 });
     } else {
       fp.setup({ firstPersonOnlyLayer: 0 });
     }

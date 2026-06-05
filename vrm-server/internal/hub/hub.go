@@ -218,6 +218,81 @@ func (c *Client) handleMessage(raw []byte) {
 			return
 		}
 		c.Hub.unregister <- c
+
+	case protocol.TypeSpringBoneParams:
+		var sbp protocol.SpringBoneParamsMessage
+		if err := json.Unmarshal(raw, &sbp); err != nil {
+			log.Println("unmarshal spring_bone_params error:", err)
+			return
+		}
+		if c.RoomID == "" || c.UserID == "" {
+			return
+		}
+		sbp.UserID = c.UserID
+		sbp.RoomID = c.RoomID
+		if r, ok := c.Hub.rooms[c.RoomID]; ok {
+			delta := protocol.AvatarDeltaMessage{
+				Type:       protocol.TypeSpringBoneParams,
+				UserID:     c.UserID,
+				RoomID:     c.RoomID,
+				SpringBone: &sbp.Params,
+			}
+			if err := delta.Validate(); err != nil {
+				log.Println("spring_bone validation error:", err)
+				return
+			}
+			r.DeltaIn <- delta
+		}
+
+	case protocol.TypeMaterialParams:
+		var mp protocol.MaterialParamsMessage
+		if err := json.Unmarshal(raw, &mp); err != nil {
+			log.Println("unmarshal material_params error:", err)
+			return
+		}
+		if c.RoomID == "" || c.UserID == "" {
+			return
+		}
+		mp.UserID = c.UserID
+		mp.RoomID = c.RoomID
+		if r, ok := c.Hub.rooms[c.RoomID]; ok {
+			delta := protocol.AvatarDeltaMessage{
+				Type:      protocol.TypeMaterialParams,
+				UserID:    c.UserID,
+				RoomID:    c.RoomID,
+				Materials: []protocol.MaterialParams{mp.Params},
+			}
+			if err := delta.Validate(); err != nil {
+				log.Println("material validation error:", err)
+				return
+			}
+			r.DeltaIn <- delta
+		}
+
+	case protocol.TypeConstraintParams:
+		var cp protocol.ConstraintParamsMessage
+		if err := json.Unmarshal(raw, &cp); err != nil {
+			log.Println("unmarshal constraint_params error:", err)
+			return
+		}
+		if c.RoomID == "" || c.UserID == "" {
+			return
+		}
+		cp.UserID = c.UserID
+		cp.RoomID = c.RoomID
+		if r, ok := c.Hub.rooms[c.RoomID]; ok {
+			delta := protocol.AvatarDeltaMessage{
+				Type:        protocol.TypeConstraintParams,
+				UserID:      c.UserID,
+				RoomID:      c.RoomID,
+				Constraints: []protocol.ConstraintParams{cp.Params},
+			}
+			if err := delta.Validate(); err != nil {
+				log.Println("constraint validation error:", err)
+				return
+			}
+			r.DeltaIn <- delta
+		}
 	}
 }
 

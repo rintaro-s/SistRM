@@ -112,7 +112,7 @@ object CoordinateConverter {
             CoordinateSystem.UNITY -> convertQuaternionLhToRh(rot)
             CoordinateSystem.VRM0_RAW -> {
                 // Apply 180° Y rotation to correct VRM 0.0 +Z forward
-                val correction = Quaternion().setFromAxisAngle(Vector3.UP, kotlin.math.PI)
+                val correction = Quaternion().setFromAxisAngle(Vector3.UP, kotlin.math.PI.toFloat())
                 correction.multiply(rot)
                 correction
             }
@@ -142,7 +142,7 @@ object CoordinateConverter {
             CoordinateSystem.SSCS -> rot.clone()
             CoordinateSystem.UNITY -> convertQuaternionLhToRh(rot)
             CoordinateSystem.VRM0_RAW -> {
-                val correction = Quaternion().setFromAxisAngle(Vector3.UP, kotlin.math.PI)
+                val correction = Quaternion().setFromAxisAngle(Vector3.UP, kotlin.math.PI.toFloat())
                 correction.multiply(rot)
                 correction
             }

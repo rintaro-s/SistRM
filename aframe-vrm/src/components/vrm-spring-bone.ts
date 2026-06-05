@@ -1,8 +1,9 @@
+import * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 
 interface VRMSpringBoneComponent extends AFrameComponent {
   _vrm: VRM | null;
-  _storedGravity: { x: number; y: number; z: number } | null;
+  _storedGravity: THREE.Vector3 | null;
   _storedStiffness: number | null;
   applyOverrides(): void;
 }
@@ -34,9 +35,19 @@ AFRAME.registerComponent('vrm-spring-bone', {
 
   applyOverrides(this: VRMSpringBoneComponent): void {
     if (!this._vrm) return;
-    // @pixiv/three-vrm doesn't expose direct spring bone control in the public API.
-    // Store values for future custom spring bone implementations or runtime patching.
-    this._storedGravity = this.data.gravity;
-    this._storedStiffness = this.data.stiffness;
+
+    const { gravity, stiffness } = this.data;
+    this._storedGravity = new THREE.Vector3(gravity.x, gravity.y, gravity.z);
+    this._storedStiffness = stiffness;
+
+    const sbm = this._vrm.springBoneManager;
+    if (!sbm) return;
+
+    const gravityPower = Math.abs(gravity.y);
+    for (const group of sbm.springBones) {
+      group.gravityDir.set(gravity.x, gravity.y, gravity.z);
+      group.gravityPower = gravityPower;
+      group.stiffnessForce = stiffness;
+    }
   },
 });

@@ -130,7 +130,7 @@ data class Matrix4(
 
     fun decompose(position: Vector3, quaternion: Quaternion, scale: Vector3): Matrix4 {
         val te = elements
-        val sx = Vector3(te[0], te[1], te[2]).length()
+        var sx = Vector3(te[0], te[1], te[2]).length()
         val sy = Vector3(te[4], te[5], te[6]).length()
         val sz = Vector3(te[8], te[9], te[10]).length()
         val det = determinant()

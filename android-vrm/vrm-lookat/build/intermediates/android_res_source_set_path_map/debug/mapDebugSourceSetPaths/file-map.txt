@@ -1,0 +1,9 @@
+com.sisterm.vrm.lookat.vrm-lookat-pngs-0 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/generated/res/pngs/debug
+com.sisterm.vrm.lookat.vrm-lookat-updated_navigation_xml-1 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/generated/updated_navigation_xml/debug
+com.sisterm.vrm.lookat.vrm-lookat-mergeDebugResources-2 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
+com.sisterm.vrm.lookat.vrm-lookat-mergeDebugResources-3 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
+com.sisterm.vrm.lookat.vrm-lookat-debug-4 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/intermediates/merged_res/debug/mergeDebugResources
+com.sisterm.vrm.lookat.vrm-lookat-debug-5 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/build/intermediates/packaged_res/debug/packageDebugResources
+com.sisterm.vrm.lookat.vrm-lookat-debug-6 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/src/debug/res
+com.sisterm.vrm.lookat.vrm-lookat-main-7 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-lookat/src/main/res
+gradleHome-0 /home/rinta/.gradle

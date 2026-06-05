@@ -1,0 +1,8 @@
+com.sisterm.vrm.sample.vrm-sample-pngs-0 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/build/generated/res/pngs/debug
+com.sisterm.vrm.sample.vrm-sample-updated_navigation_xml-1 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/build/generated/updated_navigation_xml/debug
+com.sisterm.vrm.sample.vrm-sample-packageDebugResources-2 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.sisterm.vrm.sample.vrm-sample-packageDebugResources-3 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.sisterm.vrm.sample.vrm-sample-debug-4 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/build/intermediates/merged_res/debug/mergeDebugResources
+com.sisterm.vrm.sample.vrm-sample-debug-5 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/src/debug/res
+com.sisterm.vrm.sample.vrm-sample-main-6 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-sample/src/main/res
+gradleHome-0 /home/rinta/.gradle

@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml:2:13-83
+INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml:2:13-83
+	package
+		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml
+	xmlns:android
+		ADDED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml:2:23-81
+uses-sdk
+INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml reason: use-sdk injection requested
+INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml
+INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml
+	android:targetSdkVersion
+		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml
+	android:minSdkVersion
+		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest16028566211169101471.xml

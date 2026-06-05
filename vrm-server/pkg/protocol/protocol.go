@@ -9,13 +9,16 @@ import (
 type MessageType string
 
 const (
-	TypeJoinRoom    MessageType = "join_room"
-	TypeLeaveRoom   MessageType = "leave_room"
-	TypeFullState   MessageType = "full_state"
-	TypeAvatarDelta MessageType = "avatar_delta"
-	TypeRoomEvent   MessageType = "room_event"
-	TypeHeartbeat   MessageType = "heartbeat"
-	TypeError       MessageType = "error"
+	TypeJoinRoom          MessageType = "join_room"
+	TypeLeaveRoom         MessageType = "leave_room"
+	TypeFullState         MessageType = "full_state"
+	TypeAvatarDelta       MessageType = "avatar_delta"
+	TypeRoomEvent         MessageType = "room_event"
+	TypeHeartbeat         MessageType = "heartbeat"
+	TypeError             MessageType = "error"
+	TypeSpringBoneParams  MessageType = "spring_bone_params"
+	TypeMaterialParams    MessageType = "material_params"
+	TypeConstraintParams  MessageType = "constraint_params"
 )
 
 // Vec3 represents a 3D vector.
@@ -100,6 +103,34 @@ const (
 	CoordVrm0Raw  CoordinateSystem = "VRM0_RAW"
 )
 
+// SpringBoneParams controls spring bone dynamics for VRM avatars.
+type SpringBoneParams struct {
+	Gravity   Vec3    `json:"gravity"`
+	Wind      Vec3    `json:"wind"`
+	Stiffness float64 `json:"stiffness"`
+	DragForce float64 `json:"drag_force"`
+}
+
+// ConstraintParams controls look-at / aim / roll constraints.
+type ConstraintParams struct {
+	Type       string  `json:"type"`
+	SourceNode int     `json:"source_node"`
+	Weight     float64 `json:"weight"`
+	AimAxis    string  `json:"aim_axis,omitempty"`
+	RollAxis   string  `json:"roll_axis,omitempty"`
+}
+
+// MaterialParams controls MToon material properties.
+type MaterialParams struct {
+	MaterialIndex int       `json:"material_index"`
+	RenderMode    string    `json:"render_mode,omitempty"`
+	ShadeColor    [4]float64 `json:"shade_color"`
+	ShadingShift  float64   `json:"shading_shift"`
+	MatcapFactor  [3]float64 `json:"matcap_factor,omitempty"`
+	RimFactor     [3]float64 `json:"rim_factor,omitempty"`
+	OutlineWidth  float64   `json:"outline_width,omitempty"`
+}
+
 // EntityState represents the full synchronized state of an avatar.
 type EntityState struct {
 	UserID           string                `json:"user_id"`
@@ -110,6 +141,9 @@ type EntityState struct {
 	Expressions      map[string]float64    `json:"expressions"`
 	BoneRotations    map[string]Quaternion `json:"bone_rotations"`
 	LookAt           Vec3                  `json:"look_at"`
+	SpringBone       *SpringBoneParams     `json:"spring_bone,omitempty"`
+	Materials        []MaterialParams      `json:"materials,omitempty"`
+	Constraints      []ConstraintParams    `json:"constraints,omitempty"`
 }
 
 // JoinRoomMessage is sent by a client to join a room.
@@ -135,15 +169,18 @@ type FullStateMessage struct {
 
 // AvatarDeltaMessage is sent by a client to update its avatar state.
 type AvatarDeltaMessage struct {
-	Type             MessageType          `json:"type"`
-	UserID           string               `json:"user_id"`
-	RoomID           string               `json:"room_id"`
-	CoordinateSystem CoordinateSystem     `json:"coordinate_system,omitempty"`
-	Transform        *Transform           `json:"transform,omitempty"`
-	Expressions      map[string]float64   `json:"expressions,omitempty"`
+	Type             MessageType           `json:"type"`
+	UserID           string                `json:"user_id"`
+	RoomID           string                `json:"room_id"`
+	CoordinateSystem CoordinateSystem      `json:"coordinate_system,omitempty"`
+	Transform        *Transform            `json:"transform,omitempty"`
+	Expressions      map[string]float64    `json:"expressions,omitempty"`
 	BoneRotations    map[string]Quaternion `json:"bone_rotations,omitempty"`
-	LookAt           *Vec3                `json:"look_at,omitempty"`
-	Timestamp        int64                `json:"timestamp"`
+	LookAt           *Vec3                 `json:"look_at,omitempty"`
+	SpringBone       *SpringBoneParams     `json:"spring_bone,omitempty"`
+	Materials        []MaterialParams      `json:"materials,omitempty"`
+	Constraints      []ConstraintParams    `json:"constraints,omitempty"`
+	Timestamp        int64                 `json:"timestamp"`
 }
 
 // RoomEventMessage is used for chat, RPC, or other room-level events.
@@ -160,6 +197,30 @@ type RoomEventMessage struct {
 type HeartbeatMessage struct {
 	Type      MessageType `json:"type"`
 	Timestamp int64       `json:"timestamp"`
+}
+
+// SpringBoneParamsMessage sets spring bone dynamics for an avatar.
+type SpringBoneParamsMessage struct {
+	Type    MessageType      `json:"type"`
+	UserID  string           `json:"user_id"`
+	RoomID  string           `json:"room_id"`
+	Params  SpringBoneParams `json:"params"`
+}
+
+// MaterialParamsMessage sets material properties for an avatar.
+type MaterialParamsMessage struct {
+	Type    MessageType    `json:"type"`
+	UserID  string         `json:"user_id"`
+	RoomID  string         `json:"room_id"`
+	Params  MaterialParams `json:"params"`
+}
+
+// ConstraintParamsMessage sets constraint properties for an avatar.
+type ConstraintParamsMessage struct {
+	Type    MessageType     `json:"type"`
+	UserID  string          `json:"user_id"`
+	RoomID  string          `json:"room_id"`
+	Params  ConstraintParams `json:"params"`
 }
 
 // Message is a generic wrapper to help with initial deserialization.
@@ -184,6 +245,21 @@ func (d *AvatarDeltaMessage) Validate() error {
 	if d.LookAt != nil {
 		if err := validateVec3(*d.LookAt); err != nil {
 			return fmt.Errorf("invalid look_at: %w", err)
+		}
+	}
+	if d.SpringBone != nil {
+		if err := validateSpringBoneParams(*d.SpringBone); err != nil {
+			return fmt.Errorf("invalid spring_bone: %w", err)
+		}
+	}
+	for i, m := range d.Materials {
+		if err := validateMaterialParams(m); err != nil {
+			return fmt.Errorf("invalid material[%d]: %w", i, err)
+		}
+	}
+	for i, c := range d.Constraints {
+		if err := validateConstraintParams(c); err != nil {
+			return fmt.Errorf("invalid constraint[%d]: %w", i, err)
 		}
 	}
 	return nil
@@ -214,6 +290,50 @@ func validateTransform(t Transform) error {
 	}
 	if err := validateVec3(t.Scale); err != nil {
 		return fmt.Errorf("scale: %w", err)
+	}
+	return nil
+}
+
+func validateSpringBoneParams(p SpringBoneParams) error {
+	if err := validateVec3(p.Gravity); err != nil {
+		return fmt.Errorf("gravity: %w", err)
+	}
+	if err := validateVec3(p.Wind); err != nil {
+		return fmt.Errorf("wind: %w", err)
+	}
+	if p.Stiffness < 0 || p.Stiffness > 1 {
+		return fmt.Errorf("stiffness must be in [0,1], got %f", p.Stiffness)
+	}
+	if p.DragForce < 0 || p.DragForce > 1 {
+		return fmt.Errorf("drag_force must be in [0,1], got %f", p.DragForce)
+	}
+	return nil
+}
+
+func validateMaterialParams(m MaterialParams) error {
+	if m.MaterialIndex < 0 {
+		return fmt.Errorf("material_index must be >= 0")
+	}
+	for i, c := range m.ShadeColor {
+		if c < 0 || c > 1 {
+			return fmt.Errorf("shade_color[%d] must be in [0,1], got %f", i, c)
+		}
+	}
+	if m.ShadingShift < -1 || m.ShadingShift > 1 {
+		return fmt.Errorf("shading_shift must be in [-1,1], got %f", m.ShadingShift)
+	}
+	return nil
+}
+
+func validateConstraintParams(c ConstraintParams) error {
+	if c.Type == "" {
+		return fmt.Errorf("type is required")
+	}
+	if c.SourceNode < 0 {
+		return fmt.Errorf("source_node must be >= 0")
+	}
+	if c.Weight < 0 || c.Weight > 1 {
+		return fmt.Errorf("weight must be in [0,1], got %f", c.Weight)
 	}
 	return nil
 }

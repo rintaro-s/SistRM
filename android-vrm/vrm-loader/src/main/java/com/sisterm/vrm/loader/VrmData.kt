@@ -12,6 +12,26 @@ package com.sisterm.vrm.loader
     val nodeConstraints: List<Vrm1NodeConstraintExtension> = emptyList(),
     val mtoonMaterials: Map<Int, Vrm1MToon> = emptyMap()
 ) {
+    val expressionNames: List<String>
+        get() = when (version) {
+            VrmVersion.VRM_1_0 -> vrm1?.expressions?.preset?.keys?.toList() ?: emptyList()
+            VrmVersion.VRM_0_0 -> vrm0?.blendShapeMaster?.blendShapeGroups?.map { it.name } ?: emptyList()
+            else -> emptyList()
+        }
+
+    val humanoidBoneNames: List<String>
+        get() = when (version) {
+            VrmVersion.VRM_1_0 -> vrm1?.humanoid?.humanBones?.map { it.bone } ?: emptyList()
+            VrmVersion.VRM_0_0 -> vrm0?.humanoid?.humanBones?.map { it.bone } ?: emptyList()
+            else -> emptyList()
+        }
+
+    val metaTitle: String
+        get() = vrm1?.meta?.name ?: vrm0?.meta?.title ?: ""
+
+    val metaAuthor: String
+        get() = vrm1?.meta?.authors?.firstOrNull() ?: vrm0?.meta?.author ?: ""
+
     companion object {
         fun fromGltf(gltf: GltfRoot): VrmData {
             val version = VrmExtensionParser.detectVersion(gltf.extensions)

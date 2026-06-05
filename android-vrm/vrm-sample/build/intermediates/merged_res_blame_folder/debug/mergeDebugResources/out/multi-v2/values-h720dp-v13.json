@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.sisterm.vrm.sample.vrm-sample-mergeDebugResources-29:/values-h720dp-v13/values-h720dp-v13.xml",
+            "map": [
+                {
+                    "source": "/home/rinta/.gradle/caches/9.4.1/transforms/da53cd7cf35c924e2f33ae6678660803/transformed/appcompat-1.6.1/res/values-h720dp-v13/values-h720dp-v13.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "66",
+                        "endOffsets": "117"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -58,6 +58,16 @@ dependencies {
     implementation(libs.filament.gltfio)
     implementation(libs.filament.utils)
 
+    // SisterRM VRM library modules
+    implementation(project(":vrm-loader"))
+    implementation(project(":vrm-core"))
+    implementation(project(":vrm-springbone"))
+    implementation(project(":vrm-constraint"))
+    implementation(project(":vrm-lookat"))
+    implementation(project(":vrm-material"))
+    implementation(project(":vrm-filament"))
+    implementation(project(":vrm-network"))
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -63,6 +63,22 @@ func (ws *WorldState) UpdateEntity(delta protocol.AvatarDeltaMessage) {
 	for k, v := range delta.BoneRotations {
 		ent.BoneRotations[k] = clampQuaternion(v)
 	}
+	if delta.SpringBone != nil {
+		sb := clampSpringBoneParams(*delta.SpringBone)
+		ent.SpringBone = &sb
+	}
+	if delta.Materials != nil {
+		ent.Materials = make([]protocol.MaterialParams, len(delta.Materials))
+		for i, m := range delta.Materials {
+			ent.Materials[i] = clampMaterialParams(m)
+		}
+	}
+	if delta.Constraints != nil {
+		ent.Constraints = make([]protocol.ConstraintParams, len(delta.Constraints))
+		for i, c := range delta.Constraints {
+			ent.Constraints[i] = clampConstraintParams(c)
+		}
+	}
 	ent.CoordinateSystem = protocol.CoordSSCS // Server stores in SSCS
 }
 
@@ -87,12 +103,21 @@ func (ws *WorldState) FullState() []protocol.EntityState {
 			LookAt:        ent.LookAt,
 			Expressions:   make(map[string]float64, len(ent.Expressions)),
 			BoneRotations: make(map[string]protocol.Quaternion, len(ent.BoneRotations)),
+			SpringBone:    copySpringBoneParams(ent.SpringBone),
 		}
 		for k, v := range ent.Expressions {
 			copyEnt.Expressions[k] = v
 		}
 		for k, v := range ent.BoneRotations {
 			copyEnt.BoneRotations[k] = v
+		}
+		if ent.Materials != nil {
+			copyEnt.Materials = make([]protocol.MaterialParams, len(ent.Materials))
+			copy(copyEnt.Materials, ent.Materials)
+		}
+		if ent.Constraints != nil {
+			copyEnt.Constraints = make([]protocol.ConstraintParams, len(ent.Constraints))
+			copy(copyEnt.Constraints, ent.Constraints)
 		}
 		result = append(result, copyEnt)
 	}
@@ -219,4 +244,35 @@ func clampFloat(v, min, max float64) float64 {
 		return max
 	}
 	return v
+}
+
+func clampSpringBoneParams(p protocol.SpringBoneParams) protocol.SpringBoneParams {
+	return protocol.SpringBoneParams{
+		Gravity:   clampVec3(p.Gravity),
+		Wind:      clampVec3(p.Wind),
+		Stiffness: clampFloat(p.Stiffness, 0, 1),
+		DragForce: clampFloat(p.DragForce, 0, 1),
+	}
+}
+
+func clampMaterialParams(m protocol.MaterialParams) protocol.MaterialParams {
+	for i := range m.ShadeColor {
+		m.ShadeColor[i] = clampFloat(m.ShadeColor[i], 0, 1)
+	}
+	m.ShadingShift = clampFloat(m.ShadingShift, -1, 1)
+	m.OutlineWidth = clampFloat(m.OutlineWidth, 0, maxScale)
+	return m
+}
+
+func clampConstraintParams(c protocol.ConstraintParams) protocol.ConstraintParams {
+	c.Weight = clampFloat(c.Weight, 0, 1)
+	return c
+}
+
+func copySpringBoneParams(p *protocol.SpringBoneParams) *protocol.SpringBoneParams {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	return &cp
 }

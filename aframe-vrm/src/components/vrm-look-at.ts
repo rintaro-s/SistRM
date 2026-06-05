@@ -27,6 +27,7 @@ AFRAME.registerComponent('vrm-look-at', {
     if (!this._vrm || !this.data.enabled) return;
     const target = this.data.target;
     if (!target) return;
+    if (!target.object3D) return;
     const targetPos = new THREE.Vector3();
     target.object3D.getWorldPosition(targetPos);
     if (this._vrm.lookAt) {
