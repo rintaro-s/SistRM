@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml:2:13-83
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml:2:13-83
+ADDED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml:2:13-83
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml:2:13-83
 	package
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml
 	xmlns:android
-		ADDED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml:2:23-81
+		ADDED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml:2:23-81
 uses-sdk
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml reason: use-sdk injection requested
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml reason: use-sdk injection requested
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml
 	android:targetSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml
 	android:minSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest9678474116896357238.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4162024924702991469.xml

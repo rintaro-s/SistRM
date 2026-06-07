@@ -300,11 +300,17 @@ class VRMFilamentController(
     override fun getExpressionWeight(name: String): Float = currentExpressionWeights[name] ?: 0f
     override fun resetExpressions() { currentExpressionWeights.clear() }
 
-    override fun getBoneNames(): List<String> = allNodeNameEntityMap.keys.toList()
+    override fun getBoneNames(): List<String> = boneEntityMap.keys.toList()
 
     override fun setBoneRotation(boneName: String, eulerX: Float, eulerY: Float, eulerZ: Float) {
-        val entity = allNodeNameEntityMap[boneName] ?: allNodeNameEntityMap[boneName.lowercase()] ?: return
-        val bind = boneBindPoses[boneName] ?: boneBindPoses[boneName.lowercase()] ?: return
+        val key = boneName.lowercase()
+        val entity = boneEntityMap[key]
+            ?: allNodeNameEntityMap[boneName]
+            ?: allNodeNameEntityMap[key]
+            ?: return
+        val bind = boneBindPoses[boneName]
+            ?: boneBindPoses[key]
+            ?: return
 
         val bindPos = floatArrayOf(bind[0], bind[1], bind[2])
         val bindQuat = floatArrayOf(bind[3], bind[4], bind[5], bind[6])
@@ -313,12 +319,7 @@ class VRMFilamentController(
         val deltaQuat = eulerToQuaternion(eulerX, eulerY, eulerZ)
         val finalQuat = quaternionMultiply(bindQuat, deltaQuat)
 
-        val matrix = FloatArray(16)
-        android.opengl.Matrix.setIdentityM(matrix, 0)
-        android.opengl.Matrix.translateM(matrix, 0, bindPos[0], bindPos[1], bindPos[2])
-        val rotMatrix = quaternionToMatrix(finalQuat)
-        android.opengl.Matrix.multiplyMM(matrix, 0, matrix, 0, rotMatrix, 0)
-        android.opengl.Matrix.scaleM(matrix, 0, bindScl[0], bindScl[1], bindScl[2])
+        val matrix = composeTransform(bindPos, finalQuat, bindScl)
 
         val tcm = engine.transformManager
         val instance = tcm.getInstance(entity)
@@ -328,18 +329,19 @@ class VRMFilamentController(
     }
 
     override fun resetBone(boneName: String) {
-        val entity = allNodeNameEntityMap[boneName] ?: allNodeNameEntityMap[boneName.lowercase()] ?: return
-        val bind = boneBindPoses[boneName] ?: boneBindPoses[boneName.lowercase()] ?: return
+        val key = boneName.lowercase()
+        val entity = boneEntityMap[key]
+            ?: allNodeNameEntityMap[boneName]
+            ?: allNodeNameEntityMap[key]
+            ?: return
+        val bind = boneBindPoses[boneName]
+            ?: boneBindPoses[key]
+            ?: return
         val bindPos = floatArrayOf(bind[0], bind[1], bind[2])
         val bindQuat = floatArrayOf(bind[3], bind[4], bind[5], bind[6])
         val bindScl = floatArrayOf(bind[7], bind[8], bind[9])
 
-        val matrix = FloatArray(16)
-        android.opengl.Matrix.setIdentityM(matrix, 0)
-        android.opengl.Matrix.translateM(matrix, 0, bindPos[0], bindPos[1], bindPos[2])
-        val rotMatrix = quaternionToMatrix(bindQuat)
-        android.opengl.Matrix.multiplyMM(matrix, 0, matrix, 0, rotMatrix, 0)
-        android.opengl.Matrix.scaleM(matrix, 0, bindScl[0], bindScl[1], bindScl[2])
+        val matrix = composeTransform(bindPos, bindQuat, bindScl)
 
         val tcm = engine.transformManager
         val instance = tcm.getInstance(entity)
@@ -349,7 +351,7 @@ class VRMFilamentController(
     }
 
     override fun resetAllBones() {
-        allNodeNameEntityMap.keys.forEach { resetBone(it) }
+        boneEntityMap.keys.forEach { resetBone(it) }
         // Also reset spring bone particles so physics starts fresh from bind pose
         springBoneRuntime.resetParticles()
     }
@@ -366,13 +368,16 @@ class VRMFilamentController(
         }
 
     override fun setLookAtTarget(x: Float, y: Float, z: Float) {
-        val headEntity = allNodeNameEntityMap["head"] ?: allNodeNameEntityMap["Head"] ?: return
+        val headEntity = boneEntityMap["head"]
+            ?: allNodeNameEntityMap["head"]
+            ?: allNodeNameEntityMap["Head"]
+            ?: return
         val tcm = engine.transformManager
         val headInstance = tcm.getInstance(headEntity)
         if (headInstance == 0) return
 
         val headMatrix = FloatArray(16)
-        tcm.getTransform(headInstance, headMatrix)
+        tcm.getWorldTransform(headInstance, headMatrix)
         val headPos = floatArrayOf(headMatrix[12], headMatrix[13], headMatrix[14])
 
         val dx = x - headPos[0]
@@ -407,6 +412,7 @@ class VRMFilamentController(
         applyExpressionMorphsToRenderables()
         if (springBoneEnabled) {
             applySpringBoneDeltasOnFrame(deltaTime)
+            animator?.updateBoneMatrices()
         }
         if (transformDirty) {
             applyRootTransform()
@@ -503,51 +509,11 @@ class VRMFilamentController(
             springBoneNodeEntities[nodeIdx] = entity
             parentMap[nodeIdx]?.let { springBoneNodeParents[nodeIdx] = it }
 
-            // Capture bind local transform (setTransform uses local, getTransform returns world)
-            val worldMat = FloatArray(16)
-            tcm.getTransform(instance, worldMat)
-            val (worldPosArr, worldRot, worldSclArr) = decomposeMatrix(worldMat)
-            val worldPos = Vector3(worldPosArr[0], worldPosArr[1], worldPosArr[2])
-            val worldScl = Vector3(worldSclArr[0], worldSclArr[1], worldSclArr[2])
-
-            val parentIdx = parentMap[nodeIdx]
-            val localPos: Vector3
-            val localRot: Quaternion
-            val localScl: Vector3
-            if (parentIdx != null) {
-                val parentEntity = springBoneNodeEntities[parentIdx]
-                    ?: asset.getEntitiesByName(gltf.nodes[parentIdx].name ?: "").firstOrNull()
-                if (parentEntity != null) {
-                    val parentInstance = tcm.getInstance(parentEntity)
-                    if (parentInstance != 0) {
-                        val parentWorldMat = FloatArray(16)
-                        tcm.getTransform(parentInstance, parentWorldMat)
-                        val (parentWorldPosArr, parentWorldRot, _) = decomposeMatrix(parentWorldMat)
-
-                        // localRot = inverse(parentWorldRot) * worldRot
-                        val invParentRot = parentWorldRot.clone().invert()
-                        localRot = invParentRot.clone().multiply(worldRot)
-
-                        // localPos = inverse(parentWorldRot) * (worldPos - parentPos)
-                        val parentWorldPosVec = Vector3(parentWorldPosArr[0], parentWorldPosArr[1], parentWorldPosArr[2])
-                        val deltaPos = worldPos.clone().sub(parentWorldPosVec)
-                        localPos = deltaPos.clone().applyQuaternion(invParentRot)
-                        localScl = worldScl.clone()
-                    } else {
-                        localPos = worldPos.clone()
-                        localRot = worldRot.clone()
-                        localScl = worldScl.clone()
-                    }
-                } else {
-                    localPos = worldPos.clone()
-                    localRot = worldRot.clone()
-                    localScl = worldScl.clone()
-                }
-            } else {
-                localPos = worldPos.clone()
-                localRot = worldRot.clone()
-                localScl = worldScl.clone()
-            }
+            val localMat = FloatArray(16)
+            tcm.getTransform(instance, localMat)
+            val (localPosArr, localRot, localSclArr) = decomposeMatrix(localMat)
+            val localPos = Vector3(localPosArr[0], localPosArr[1], localPosArr[2])
+            val localScl = Vector3(localSclArr[0], localSclArr[1], localSclArr[2])
             springBoneBindLocals[nodeIdx] = Triple(localPos, localRot, localScl)
         }
     }
@@ -564,7 +530,7 @@ class VRMFilamentController(
             val instance = tcm.getInstance(entity)
             if (instance == 0) continue
             val matrix = FloatArray(16)
-            tcm.getTransform(instance, matrix)
+            tcm.getWorldTransform(instance, matrix)
             val (pos, quat, _) = decomposeMatrix(matrix)
             transformsMap[nodeIdx] = MutSpringTransform(
                 position = Vector3(pos[0], pos[1], pos[2]),
@@ -621,7 +587,7 @@ class VRMFilamentController(
                     val parentInstance = tcm.getInstance(parentEntity)
                     if (parentInstance != 0) {
                         val parentWorldMat = FloatArray(16)
-                        tcm.getTransform(parentInstance, parentWorldMat)
+                        tcm.getWorldTransform(parentInstance, parentWorldMat)
                         val (_, parentWorldRot, _) = decomposeMatrix(parentWorldMat)
 
                         // newLocalRot = inverse(parentWorldRot) * newWorldRot
@@ -638,12 +604,11 @@ class VRMFilamentController(
             }
 
             // Build local transform matrix: T * R * S
-            val matrix = FloatArray(16)
-            android.opengl.Matrix.setIdentityM(matrix, 0)
-            android.opengl.Matrix.translateM(matrix, 0, bindPos.x, bindPos.y, bindPos.z)
-            val rotMatrix = quaternionToMatrix(floatArrayOf(newLocalRot.x, newLocalRot.y, newLocalRot.z, newLocalRot.w))
-            android.opengl.Matrix.multiplyMM(matrix, 0, matrix, 0, rotMatrix, 0)
-            android.opengl.Matrix.scaleM(matrix, 0, bindScl.x, bindScl.y, bindScl.z)
+            val matrix = composeTransform(
+                floatArrayOf(bindPos.x, bindPos.y, bindPos.z),
+                floatArrayOf(newLocalRot.x, newLocalRot.y, newLocalRot.z, newLocalRot.w),
+                floatArrayOf(bindScl.x, bindScl.y, bindScl.z)
+            )
 
             tcm.setTransform(instance, matrix)
         }
@@ -742,38 +707,58 @@ class VRMFilamentController(
         val tcm = engine.transformManager
         // Capture bind poses for ALL named nodes, not just humanoid bones
         allNodeNameEntityMap.forEach { (nodeName, entity) ->
-            val instance = tcm.getInstance(entity)
-            if (instance == 0) return@forEach
-            val worldMat = FloatArray(16)
-            tcm.getTransform(instance, worldMat)
-
-            // Convert world transform to local transform
-            val nodeIdx = vrmData?.gltf?.nodes?.indexOfFirst { it.name == nodeName } ?: -1
-            val parentNodeIdx = if (nodeIdx >= 0) nodeParentMap[nodeIdx] else null
-            val localMat = if (parentNodeIdx != null) {
-                val parentEntity = nodeEntityMap[parentNodeIdx]
-                if (parentEntity != null) {
-                    val parentInstance = tcm.getInstance(parentEntity)
-                    if (parentInstance != 0) {
-                        val parentWorldMat = FloatArray(16)
-                        tcm.getTransform(parentInstance, parentWorldMat)
-                        val invParentWorldMat = FloatArray(16)
-                        android.opengl.Matrix.setIdentityM(invParentWorldMat, 0)
-                        android.opengl.Matrix.invertM(invParentWorldMat, 0, parentWorldMat, 0)
-                        val result = FloatArray(16)
-                        android.opengl.Matrix.multiplyMM(result, 0, invParentWorldMat, 0, worldMat, 0)
-                        result
-                    } else worldMat
-                } else worldMat
-            } else worldMat
-
-            val (pos, quat, scl) = decomposeMatrix(localMat)
-            boneBindPoses[nodeName] = floatArrayOf(
-                pos[0], pos[1], pos[2],
-                quat.x, quat.y, quat.z, quat.w,
-                scl[0], scl[1], scl[2]
-            )
+            captureBindPoseForNode(nodeName, entity, tcm)
         }
+        // Also capture bind poses for humanoid bone names so setBoneRotation works with them
+        boneEntityMap.forEach { (boneName, entity) ->
+            if (!boneBindPoses.containsKey(boneName)) {
+                captureBindPoseForNode(boneName, entity, tcm)
+            }
+        }
+    }
+
+    private fun captureBindPoseForNode(nodeName: String, entity: Int, tcm: com.google.android.filament.TransformManager) {
+        val nodeIdx = boneNodeMap[nodeName.lowercase()]
+            ?: vrmData?.gltf?.nodes?.indexOfFirst { it.name == nodeName }
+            ?: -1
+        val node = vrmData?.gltf?.nodes?.getOrNull(nodeIdx)
+        val (pos, quat, scl) = if (node != null) {
+            val nodeMatrix = node.matrix
+            if (nodeMatrix != null && nodeMatrix.size == 16) {
+                decomposeMatrix(nodeMatrix.toFloatArray())
+            } else {
+                Triple(
+                    floatArrayOf(
+                        node.translation.getOrElse(0) { 0f },
+                        node.translation.getOrElse(1) { 0f },
+                        node.translation.getOrElse(2) { 0f }
+                    ),
+                    Quaternion(
+                        node.rotation.getOrElse(0) { 0f },
+                        node.rotation.getOrElse(1) { 0f },
+                        node.rotation.getOrElse(2) { 0f },
+                        node.rotation.getOrElse(3) { 1f }
+                    ),
+                    floatArrayOf(
+                        node.scale.getOrElse(0) { 1f },
+                        node.scale.getOrElse(1) { 1f },
+                        node.scale.getOrElse(2) { 1f }
+                    )
+                )
+            }
+        } else {
+            val instance = tcm.getInstance(entity)
+            if (instance == 0) return
+            val localMat = FloatArray(16)
+            tcm.getTransform(instance, localMat)
+            decomposeMatrix(localMat)
+        }
+        boneBindPoses[nodeName] = floatArrayOf(
+            pos[0], pos[1], pos[2],
+            quat.x, quat.y, quat.z, quat.w,
+            scl[0], scl[1], scl[2]
+        )
+        boneBindPoses[nodeName.lowercase()] = boneBindPoses[nodeName]!!
     }
 
     private fun buildFirstPersonEntities(asset: FilamentAsset, vrmData: VrmData?) {
@@ -806,12 +791,11 @@ class VRMFilamentController(
         val instance = tcm.getInstance(root)
         if (instance == 0) return
 
-        val matrix = FloatArray(16)
-        android.opengl.Matrix.setIdentityM(matrix, 0)
-        android.opengl.Matrix.translateM(matrix, 0, _positionX, _positionY, _positionZ)
-        val rotMatrix = quaternionToMatrix(_rotationQuat)
-        android.opengl.Matrix.multiplyMM(matrix, 0, matrix, 0, rotMatrix, 0)
-        android.opengl.Matrix.scaleM(matrix, 0, _scaleX, _scaleY, _scaleZ)
+        val matrix = composeTransform(
+            floatArrayOf(_positionX, _positionY, _positionZ),
+            _rotationQuat,
+            floatArrayOf(_scaleX, _scaleY, _scaleZ)
+        )
         tcm.setTransform(instance, matrix)
     }
 
@@ -861,6 +845,33 @@ class VRMFilamentController(
             2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0f,
             2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0f,
             0f, 0f, 0f, 1f
+        )
+    }
+
+    private fun composeTransform(position: FloatArray, quaternion: FloatArray, scale: FloatArray): FloatArray {
+        val x = quaternion[0]; val y = quaternion[1]; val z = quaternion[2]; val w = quaternion[3]
+        val x2 = x + x; val y2 = y + y; val z2 = z + z
+        val xx = x * x2; val xy = x * y2; val xz = x * z2
+        val yy = y * y2; val yz = y * z2; val zz = z * z2
+        val wx = w * x2; val wy = w * y2; val wz = w * z2
+        val sx = scale[0]; val sy = scale[1]; val sz = scale[2]
+        return floatArrayOf(
+            (1 - (yy + zz)) * sx,
+            (xy + wz) * sx,
+            (xz - wy) * sx,
+            0f,
+            (xy - wz) * sy,
+            (1 - (xx + zz)) * sy,
+            (yz + wx) * sy,
+            0f,
+            (xz + wy) * sz,
+            (yz - wx) * sz,
+            (1 - (xx + yy)) * sz,
+            0f,
+            position[0],
+            position[1],
+            position[2],
+            1f
         )
     }
 

@@ -1,1 +1,10 @@
 /origin
+android-vrm/vrm-filament/build/
+android-vrm/vrm-loader/build/
+android-vrm/vrm-network/build/
+android-vrm/vrm-material/build/
+android-vrm/vrm-core/build/
+android-vrm/vrm-asset/build/
+android-vrm/vrm-asset-loader/build/
+android-vrm/vrm-asset-loader-ktx/build/
+android-vrm/vrm-material/build/
