@@ -19,6 +19,11 @@ import com.google.android.filament.utils.Manipulator
 import com.sisterm.vrm.loader.GlbExtractor
 import com.sisterm.vrm.loader.GltfParser
 import com.sisterm.vrm.loader.VrmData
+import com.sisterm.vrm.loader.VrmVersion
+import com.sisterm.vrm.springbone.MutSpringTransform
+import com.sisterm.vrm.springbone.SpringBoneRuntime
+import com.sisterm.vrm.core.math.Quaternion
+import com.sisterm.vrm.core.math.Vector3
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,8 +82,22 @@ class VRMFilamentController(
     private var isAlive = true
     private var isModelLoaded = false
     private var listener: VRMControllerListener? = null
+    private var renderLoopRunning = false
 
     private val mainScope = CoroutineScope(Dispatchers.Main)
+
+    // ========== Node hierarchy maps ==========
+    private val nodeEntityMap = mutableMapOf<Int, Int>()      // gltf node index -> Filament entity
+    private val nodeParentMap = mutableMapOf<Int, Int>()      // gltf node index -> parent gltf node index
+    private val boneNodeMap = mutableMapOf<String, Int>()     // bone name -> gltf node index
+
+    // ========== Spring-bone integration ==========
+    private val springBoneRuntime = SpringBoneRuntime()
+    private var springBoneNodeEntities = mutableMapOf<Int, Int>() // gltf node index -> Filament entity
+    private var springBoneNodeParents = mutableMapOf<Int, Int>()  // gltf node index -> parent gltf node index
+    private var springBoneBindLocals = mutableMapOf<Int, Triple<Vector3, Quaternion, Vector3>>() // node -> (pos, rot, scl) local bind
+    private val springBoneJointNodes = mutableSetOf<Int>()    // nodes that are actual spring bone joints
+    private var springBoneInitialized = false
 
     init {
         view.camera = camera
@@ -99,7 +118,9 @@ class VRMFilamentController(
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 swapChain = engine.createSwapChain(holder.surface)
-                startRenderLoop()
+                if (!renderLoopRunning) {
+                    startRenderLoop()
+                }
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
                 view.viewport = Viewport(0, 0, width, height)
@@ -119,12 +140,16 @@ class VRMFilamentController(
     }
 
     private fun startRenderLoop() {
+        renderLoopRunning = true
         surfaceView.postOnAnimation(object : Runnable {
             override fun run() {
-                if (!isAlive) return
+                if (!isAlive) {
+                    renderLoopRunning = false
+                    return
+                }
                 update(0.016f)
                 val sc = swapChain as? com.google.android.filament.SwapChain
-                if (sc != null && renderer.beginFrame(sc)) {
+                if (sc != null && renderer.beginFrame(sc, System.nanoTime())) {
                     renderer.render(view)
                     renderer.endFrame()
                 }
@@ -203,6 +228,34 @@ class VRMFilamentController(
         }
 
         filamentAsset = asset
+        isModelLoaded = false
+
+        // Clear node maps for new model
+        nodeEntityMap.clear()
+        nodeParentMap.clear()
+        boneNodeMap.clear()
+        springBoneJointNodes.clear()
+        springBoneNodeEntities.clear()
+        springBoneNodeParents.clear()
+        springBoneBindLocals.clear()
+        springBoneInitialized = false
+        springBoneRuntime.reset()
+
+        // Build node entity and parent maps from gltf
+        vrmData?.let { vrm ->
+            for ((idx, node) in vrm.gltf.nodes.withIndex()) {
+                node.name?.let { name ->
+                    asset.getEntitiesByName(name).firstOrNull()?.let { entity ->
+                        nodeEntityMap[idx] = entity
+                    }
+                }
+                for (childIdx in node.children) {
+                    if (childIdx >= 0 && childIdx < vrm.gltf.nodes.size) {
+                        nodeParentMap[childIdx] = idx
+                    }
+                }
+            }
+        }
 
         // Load resources synchronously
         resourceLoader.loadResources(asset)
@@ -217,6 +270,7 @@ class VRMFilamentController(
                 buildBoneEntityMap(asset, vrmData)
                 captureBoneBindPoses()
                 buildFirstPersonEntities(asset, vrmData)
+                buildSpringBoneMappings(asset, vrmData)
 
                 isModelLoaded = true
                 android.util.Log.d(
@@ -345,6 +399,7 @@ class VRMFilamentController(
         if (!isModelLoaded) return
         animator?.updateBoneMatrices()
         applyExpressionMorphsToRenderables()
+        applySpringBoneDeltasOnFrame(deltaTime)
         if (transformDirty) {
             applyRootTransform()
             transformDirty = false
@@ -356,6 +411,234 @@ class VRMFilamentController(
         filamentAsset?.let { assetLoader.destroyAsset(it) }
         materialProvider.destroyMaterials()
         engine.destroy()
+    }
+
+    // ==================== Spring Bone Integration ====================
+
+    private fun buildSpringBoneMappings(asset: FilamentAsset, vrmData: VrmData?) {
+        springBoneNodeEntities.clear()
+        springBoneNodeParents.clear()
+        springBoneBindLocals.clear()
+        springBoneJointNodes.clear()
+        springBoneInitialized = false
+        springBoneRuntime.reset()
+
+        if (vrmData == null) return
+        val gltf = vrmData.gltf
+
+        // Build parent map from gltf nodes
+        val parentMap = mutableMapOf<Int, Int>()
+        for ((parentIdx, node) in gltf.nodes.withIndex()) {
+            for (childIdx in node.children) {
+                if (childIdx >= 0 && childIdx < gltf.nodes.size) {
+                    parentMap[childIdx] = parentIdx
+                }
+            }
+        }
+
+        // Collect all spring bone nodes (joints, colliders, and their parents)
+        val springNodes = mutableSetOf<Int>()
+        when (vrmData.version) {
+            VrmVersion.VRM_0_0 -> {
+                vrmData.vrm0?.springBone?.forEach { sb ->
+                    sb.bones.forEach { if (it >= 0) springNodes.add(it) }
+                    sb.joints.forEach { j ->
+                        if (j.boneIndex >= 0) {
+                            springNodes.add(j.boneIndex)
+                            springBoneJointNodes.add(j.boneIndex)
+                        }
+                    }
+                }
+                vrmData.vrm0?.springBoneColliderGroups?.forEach { cg ->
+                    springNodes.add(cg.node)
+                }
+            }
+            VrmVersion.VRM_1_0 -> {
+                vrmData.springBone1?.springs?.forEach { spring ->
+                    spring.joints.forEach { j ->
+                        springNodes.add(j.node)
+                        springBoneJointNodes.add(j.node)
+                    }
+                }
+                vrmData.springBone1?.colliders?.forEach { c ->
+                    springNodes.add(c.node)
+                }
+            }
+            else -> {}
+        }
+
+        // Add all parent nodes so parent transforms are available for local bind rotation computation
+        val nodesToProcess = springNodes.toMutableSet()
+        for (nodeIdx in springNodes) {
+            var current = nodeIdx
+            while (true) {
+                val parentIdx = parentMap[current]
+                if (parentIdx != null && parentIdx !in nodesToProcess) {
+                    nodesToProcess.add(parentIdx)
+                    current = parentIdx
+                } else {
+                    break
+                }
+            }
+        }
+
+        // Map nodes to Filament entities and capture bind local transforms
+        val tcm = engine.transformManager
+        for (nodeIdx in nodesToProcess) {
+            val nodeName = gltf.nodes.getOrNull(nodeIdx)?.name ?: continue
+            val entities = asset.getEntitiesByName(nodeName)
+            if (entities.isEmpty()) continue
+            val entity = entities[0]
+            val instance = tcm.getInstance(entity)
+            if (instance == 0) continue
+
+            springBoneNodeEntities[nodeIdx] = entity
+            parentMap[nodeIdx]?.let { springBoneNodeParents[nodeIdx] = it }
+
+            // Capture bind local transform (setTransform uses local, getTransform returns world)
+            val worldMat = FloatArray(16)
+            tcm.getTransform(instance, worldMat)
+            val (worldPosArr, worldRot, worldSclArr) = decomposeMatrix(worldMat)
+            val worldPos = Vector3(worldPosArr[0], worldPosArr[1], worldPosArr[2])
+            val worldScl = Vector3(worldSclArr[0], worldSclArr[1], worldSclArr[2])
+
+            val parentIdx = parentMap[nodeIdx]
+            val localPos: Vector3
+            val localRot: Quaternion
+            val localScl: Vector3
+            if (parentIdx != null) {
+                val parentEntity = springBoneNodeEntities[parentIdx]
+                    ?: asset.getEntitiesByName(gltf.nodes[parentIdx].name ?: "").firstOrNull()
+                if (parentEntity != null) {
+                    val parentInstance = tcm.getInstance(parentEntity)
+                    if (parentInstance != 0) {
+                        val parentWorldMat = FloatArray(16)
+                        tcm.getTransform(parentInstance, parentWorldMat)
+                        val (parentWorldPosArr, parentWorldRot, _) = decomposeMatrix(parentWorldMat)
+
+                        // localRot = inverse(parentWorldRot) * worldRot
+                        val invParentRot = parentWorldRot.clone().invert()
+                        localRot = invParentRot.clone().multiply(worldRot)
+
+                        // localPos = inverse(parentWorldRot) * (worldPos - parentPos)
+                        val parentWorldPosVec = Vector3(parentWorldPosArr[0], parentWorldPosArr[1], parentWorldPosArr[2])
+                        val deltaPos = worldPos.clone().sub(parentWorldPosVec)
+                        localPos = deltaPos.clone().applyQuaternion(invParentRot)
+                        localScl = worldScl.clone()
+                    } else {
+                        localPos = worldPos.clone()
+                        localRot = worldRot.clone()
+                        localScl = worldScl.clone()
+                    }
+                } else {
+                    localPos = worldPos.clone()
+                    localRot = worldRot.clone()
+                    localScl = worldScl.clone()
+                }
+            } else {
+                localPos = worldPos.clone()
+                localRot = worldRot.clone()
+                localScl = worldScl.clone()
+            }
+            springBoneBindLocals[nodeIdx] = Triple(localPos, localRot, localScl)
+        }
+    }
+
+    private fun applySpringBoneDeltasOnFrame(dt: Float) {
+        if (springBoneNodeEntities.isEmpty()) return
+        val vrm = vrmData ?: return
+
+        val tcm = engine.transformManager
+
+        // ISSUE #1: Read Filament poses as snapshots each frame
+        val transformsMap = mutableMapOf<Int, MutSpringTransform>()
+        for ((nodeIdx, entity) in springBoneNodeEntities) {
+            val instance = tcm.getInstance(entity)
+            if (instance == 0) continue
+            val matrix = FloatArray(16)
+            tcm.getTransform(instance, matrix)
+            val (pos, quat, _) = decomposeMatrix(matrix)
+            transformsMap[nodeIdx] = MutSpringTransform(
+                position = Vector3(pos[0], pos[1], pos[2]),
+                rotation = quat.clone()
+            )
+        }
+
+        // Initialize spring bone runtime on first frame
+        if (!springBoneInitialized) {
+            springBoneRuntime.loadFromVrm1SpringBoneExtension(vrm, transformsMap, vrm.gltf)
+            springBoneInitialized = true
+        }
+
+        // Nothing to simulate
+        if (springBoneRuntime.logics.isEmpty()) return
+
+        // Integrate physics step
+        for (logic in springBoneRuntime.logics) {
+            logic.update(
+                deltaTime = dt,
+                transforms = transformsMap,
+                externalForce = springBoneRuntime.externalForce,
+                stiffnessMul = springBoneRuntime.stiffnessMultiplier,
+                gravityMul = springBoneRuntime.gravityMultiplier,
+                scalingFactor = 1.0f
+            )
+        }
+
+        // Apply rotation deltas (write rotations back out)
+        for (logic in springBoneRuntime.logics) {
+            logic.applyRotationDeltas(transformsMap)
+        }
+
+        // Write new rotations back to Filament transforms (only for actual joint nodes)
+        for (nodeIdx in springBoneJointNodes) {
+            val entity = springBoneNodeEntities[nodeIdx] ?: continue
+            val newTransform = transformsMap[nodeIdx] ?: continue
+            val instance = tcm.getInstance(entity)
+            if (instance == 0) continue
+
+            // Get bind local data
+            val bindLocal = springBoneBindLocals[nodeIdx]
+            val bindPos = bindLocal?.first ?: Vector3.ZERO
+            val bindScl = bindLocal?.third ?: Vector3(1f, 1f, 1f)
+
+            // Compute new local rotation from new world rotation and parent world rotation
+            val parentIdx = springBoneNodeParents[nodeIdx]
+            val newLocalRot: Quaternion
+            if (parentIdx != null) {
+                val parentEntity = springBoneNodeEntities[parentIdx]
+                    ?: nodeEntityMap[parentIdx]
+                    ?: filamentAsset?.getEntitiesByName(vrm.gltf.nodes[parentIdx].name ?: "")?.firstOrNull()
+                if (parentEntity != null) {
+                    val parentInstance = tcm.getInstance(parentEntity)
+                    if (parentInstance != 0) {
+                        val parentWorldMat = FloatArray(16)
+                        tcm.getTransform(parentInstance, parentWorldMat)
+                        val (_, parentWorldRot, _) = decomposeMatrix(parentWorldMat)
+
+                        // newLocalRot = inverse(parentWorldRot) * newWorldRot
+                        val invParentRot = parentWorldRot.clone().invert()
+                        newLocalRot = invParentRot.clone().multiply(newTransform.rotation)
+                    } else {
+                        newLocalRot = newTransform.rotation.clone()
+                    }
+                } else {
+                    newLocalRot = newTransform.rotation.clone()
+                }
+            } else {
+                newLocalRot = newTransform.rotation.clone()
+            }
+
+            // Build local transform matrix: T * R * S
+            val matrix = FloatArray(16)
+            android.opengl.Matrix.setIdentityM(matrix, 0)
+            android.opengl.Matrix.translateM(matrix, 0, bindPos.x, bindPos.y, bindPos.z)
+            val rotMatrix = quaternionToMatrix(floatArrayOf(newLocalRot.x, newLocalRot.y, newLocalRot.z, newLocalRot.w))
+            android.opengl.Matrix.multiplyMM(matrix, 0, matrix, 0, rotMatrix, 0)
+            android.opengl.Matrix.scaleM(matrix, 0, bindScl.x, bindScl.y, bindScl.z)
+
+            tcm.setTransform(instance, matrix)
+        }
     }
 
     // ==================== Internal ====================
@@ -425,13 +708,15 @@ class VRMFilamentController(
 
     private fun buildBoneEntityMap(asset: FilamentAsset, vrmData: VrmData?) {
         boneEntityMap.clear()
+        boneNodeMap.clear()
         if (vrmData == null) return
         val gltf = vrmData.gltf
 
-        vrmData.vrm1?.humanoid?.humanBones?.forEach { boneData ->
+        vrmData.vrm1?.humanoid?.humanBones?.forEach { (boneName, boneData) ->
             val nodeName = gltf.nodes.getOrNull(boneData.node)?.name ?: return@forEach
             asset.getEntitiesByName(nodeName).firstOrNull()?.let {
-                boneEntityMap[boneData.bone.lowercase()] = it
+                boneEntityMap[boneName.lowercase()] = it
+                boneNodeMap[boneName.lowercase()] = boneData.node
             }
         }
 
@@ -439,6 +724,7 @@ class VRMFilamentController(
             val nodeName = gltf.nodes.getOrNull(boneData.node)?.name ?: return@forEach
             asset.getEntitiesByName(nodeName).firstOrNull()?.let {
                 boneEntityMap[boneData.bone.lowercase()] = it
+                boneNodeMap[boneData.bone.lowercase()] = boneData.node
             }
         }
     }
@@ -449,12 +735,33 @@ class VRMFilamentController(
         boneEntityMap.forEach { (boneName, entity) ->
             val instance = tcm.getInstance(entity)
             if (instance == 0) return@forEach
-            val matrix = FloatArray(16)
-            tcm.getTransform(instance, matrix)
-            val (pos, quat, scl) = decomposeMatrix(matrix)
+            val worldMat = FloatArray(16)
+            tcm.getTransform(instance, worldMat)
+
+            // Convert world transform to local transform
+            val boneNodeIdx = boneNodeMap[boneName]
+            val parentNodeIdx = boneNodeIdx?.let { nodeParentMap[it] }
+            val localMat = if (parentNodeIdx != null) {
+                val parentEntity = nodeEntityMap[parentNodeIdx]
+                if (parentEntity != null) {
+                    val parentInstance = tcm.getInstance(parentEntity)
+                    if (parentInstance != 0) {
+                        val parentWorldMat = FloatArray(16)
+                        tcm.getTransform(parentInstance, parentWorldMat)
+                        val invParentWorldMat = FloatArray(16)
+                        android.opengl.Matrix.setIdentityM(invParentWorldMat, 0)
+                        android.opengl.Matrix.invertM(invParentWorldMat, 0, parentWorldMat, 0)
+                        val result = FloatArray(16)
+                        android.opengl.Matrix.multiplyMM(result, 0, invParentWorldMat, 0, worldMat, 0)
+                        result
+                    } else worldMat
+                } else worldMat
+            } else worldMat
+
+            val (pos, quat, scl) = decomposeMatrix(localMat)
             boneBindPoses[boneName] = floatArrayOf(
                 pos[0], pos[1], pos[2],
-                quat[0], quat[1], quat[2], quat[3],
+                quat.x, quat.y, quat.z, quat.w,
                 scl[0], scl[1], scl[2]
             )
         }
@@ -499,7 +806,7 @@ class VRMFilamentController(
         tcm.setTransform(instance, matrix)
     }
 
-    private fun decomposeMatrix(m: FloatArray): Triple<FloatArray, FloatArray, FloatArray> {
+    private fun decomposeMatrix(m: FloatArray): Triple<FloatArray, Quaternion, FloatArray> {
         val pos = floatArrayOf(m[12], m[13], m[14])
         val sx = kotlin.math.sqrt(m[0]*m[0] + m[1]*m[1] + m[2]*m[2])
         val sy = kotlin.math.sqrt(m[4]*m[4] + m[5]*m[5] + m[6]*m[6])
@@ -510,7 +817,7 @@ class VRMFilamentController(
         if (sy > 0.0001f) { r[3] = m[4]/sy; r[4] = m[5]/sy; r[5] = m[6]/sy }
         if (sz > 0.0001f) { r[6] = m[8]/sz; r[7] = m[9]/sz; r[8] = m[10]/sz }
         val quat = rotationMatrixToQuaternion(r)
-        return Triple(pos, quat, scl)
+        return Triple(pos, Quaternion(quat[0], quat[1], quat[2], quat[3]), scl)
     }
 
     private fun rotationMatrixToQuaternion(r: FloatArray): FloatArray {

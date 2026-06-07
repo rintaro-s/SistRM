@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.2.1" type="incidents">
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of `compileSdk` than 36 is available: 37">
+        <fix-replace
+            description="Set compileSdk to 37"
+            oldString="36"
+            replacement="37"
+            priority="0"/>
+        <location
+            file="${:vrm-core*projectDir}/build.gradle.kts"
+            line="7"
+            column="5"
+            startOffset="96"
+            endLine="7"
+            endColumn="20"
+            endOffset="111"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.1 is available: 1.11.0">
+        <fix-replace
+            description="Change to 1.11.0"
+            family="Update versions"
+            oldString="1.10.1"
+            replacement="1.11.0"
+            priority="0"/>
+        <location
+            file="${:vrm-core*projectDir}/build.gradle.kts"
+            line="20"
+            column="20"
+            startOffset="330"
+            endLine="20"
+            endColumn="77"
+            endOffset="387"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.kotlinx.coroutines.android`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `kotlinx-coroutines-android`"
+            robot="true"
+            independent="true"
+            replacement="libs.kotlinx.coroutines.android"
+            priority="0">
+            <range
+                file="${:vrm-core*projectDir}/build.gradle.kts"
+                startOffset="330"
+                endOffset="387"/>
+        </fix-replace>
+        <location
+            file="${:vrm-core*projectDir}/build.gradle.kts"
+            line="20"
+            column="20"
+            startOffset="330"
+            endLine="20"
+            endColumn="77"
+            endOffset="387"/>
+    </incident>
+
+</incidents>

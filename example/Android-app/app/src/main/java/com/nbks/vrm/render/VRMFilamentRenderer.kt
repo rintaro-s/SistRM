@@ -257,12 +257,11 @@ class VRMFilamentRenderer(
         if (vrmData == null) return
         val gltf = vrmData.gltf
 
-        // VRM 1.0: humanBones is a map of boneName -> {node}
+        // VRM 1.0: humanBones is a map of boneName -> Vrm1HumanoidBone
         vrmData.vrm1?.humanoid?.humanBones?.forEach { (boneName, boneData) ->
             val nodeIndex = boneData.node
             val nodeName = gltf.nodes.getOrNull(nodeIndex)?.name ?: return@forEach
             val entities = asset.getEntitiesByName(nodeName)
-            // Use the first matching entity as the bone transform target
             if (entities.isNotEmpty()) {
                 boneEntityMap[boneName.lowercase()] = entities[0]
             }

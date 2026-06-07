@@ -1,0 +1,9 @@
+com.sisterm.vrm.springbone.vrm-springbone-pngs-0 /mnt/github/SistRM/android-vrm/vrm-springbone/build/generated/res/pngs/release
+com.sisterm.vrm.springbone.vrm-springbone-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-springbone/build/generated/updated_navigation_xml/release
+com.sisterm.vrm.springbone.vrm-springbone-mergeReleaseResources-2 /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+com.sisterm.vrm.springbone.vrm-springbone-mergeReleaseResources-3 /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+com.sisterm.vrm.springbone.vrm-springbone-release-4 /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/merged_res/release/mergeReleaseResources
+com.sisterm.vrm.springbone.vrm-springbone-release-5 /mnt/github/SistRM/android-vrm/vrm-springbone/build/intermediates/packaged_res/release/packageReleaseResources
+com.sisterm.vrm.springbone.vrm-springbone-main-6 /mnt/github/SistRM/android-vrm/vrm-springbone/src/main/res
+com.sisterm.vrm.springbone.vrm-springbone-release-7 /mnt/github/SistRM/android-vrm/vrm-springbone/src/release/res
+gradleHome-0 /home/rinta/.gradle

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.2.1" type="incidents">
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of `compileSdk` than 36 is available: 37">
+        <fix-replace
+            description="Set compileSdk to 37"
+            oldString="36"
+            replacement="37"
+            priority="0"/>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="7"
+            column="5"
+            startOffset="100"
+            endLine="7"
+            endColumn="20"
+            endOffset="115"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.1 is available: 1.11.0">
+        <fix-replace
+            description="Change to 1.11.0"
+            family="Update versions"
+            oldString="1.10.1"
+            replacement="1.11.0"
+            priority="0"/>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="23"
+            column="20"
+            startOffset="465"
+            endLine="23"
+            endColumn="77"
+            endOffset="522"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.kotlinx.coroutines.android`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `kotlinx-coroutines-android`"
+            robot="true"
+            independent="true"
+            replacement="libs.kotlinx.coroutines.android"
+            priority="0">
+            <range
+                file="${:vrm-filament*projectDir}/build.gradle.kts"
+                startOffset="465"
+                endOffset="522"/>
+        </fix-replace>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="23"
+            column="20"
+            startOffset="465"
+            endLine="23"
+            endColumn="77"
+            endOffset="522"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for com-google-android-filament-filament-android2"
+            robot="true">
+            <fix-replace
+                description="Replace with googleFilamentAndroidVersion = &quot;1.71.5&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="googleFilamentAndroidVersion = &quot;1.71.5&quot;&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="25"
+                    endOffset="25"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with com-google-android-filament-filament-android2 = { module = &quot;com.google.android.filament:filament-android&quot;, version.ref = &quot;googleFilamentAndroidVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="com-google-android-filament-filament-android2 = { module = &quot;com.google.android.filament:filament-android&quot;, version.ref = &quot;googleFilamentAndroidVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="270"
+                    endOffset="270"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.com.google.android.filament.filament.android2"
+                robot="true"
+                replacement="libs.com.google.android.filament.filament.android2"
+                priority="0">
+                <range
+                    file="${:vrm-filament*projectDir}/build.gradle.kts"
+                    startOffset="543"
+                    endOffset="596"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="24"
+            column="20"
+            startOffset="543"
+            endLine="24"
+            endColumn="73"
+            endOffset="596"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for com-google-android-filament-gltfio-android"
+            robot="true">
+            <fix-replace
+                description="Replace with googleGltfioAndroidVersion = &quot;1.71.5&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="googleGltfioAndroidVersion = &quot;1.71.5&quot;&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="25"
+                    endOffset="25"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with com-google-android-filament-gltfio-android = { module = &quot;com.google.android.filament:gltfio-android&quot;, version.ref = &quot;googleGltfioAndroidVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="com-google-android-filament-gltfio-android = { module = &quot;com.google.android.filament:gltfio-android&quot;, version.ref = &quot;googleGltfioAndroidVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="270"
+                    endOffset="270"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.com.google.android.filament.gltfio.android"
+                robot="true"
+                replacement="libs.com.google.android.filament.gltfio.android"
+                priority="0">
+                <range
+                    file="${:vrm-filament*projectDir}/build.gradle.kts"
+                    startOffset="617"
+                    endOffset="668"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="25"
+            column="20"
+            startOffset="617"
+            endLine="25"
+            endColumn="71"
+            endOffset="668"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for com-google-android-filament-filament-utils-android2"
+            robot="true">
+            <fix-replace
+                description="Replace with googleFilamentUtilsAndroidVersion = &quot;1.71.5&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="googleFilamentUtilsAndroidVersion = &quot;1.71.5&quot;&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="25"
+                    endOffset="25"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with com-google-android-filament-filament-utils-android2 = { module = &quot;com.google.android.filament:filament-utils-android&quot;, version.ref = &quot;googleFilamentUtilsAndroidVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="com-google-android-filament-filament-utils-android2 = { module = &quot;com.google.android.filament:filament-utils-android&quot;, version.ref = &quot;googleFilamentUtilsAndroidVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="../gradle/libs.versions.toml"
+                    startOffset="270"
+                    endOffset="270"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.com.google.android.filament.filament.utils.android2"
+                robot="true"
+                replacement="libs.com.google.android.filament.filament.utils.android2"
+                priority="0">
+                <range
+                    file="${:vrm-filament*projectDir}/build.gradle.kts"
+                    startOffset="689"
+                    endOffset="748"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:vrm-filament*projectDir}/build.gradle.kts"
+            line="26"
+            column="20"
+            startOffset="689"
+            endLine="26"
+            endColumn="79"
+            endOffset="748"/>
+    </incident>
+
+</incidents>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.2.1" type="incidents">
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of `compileSdk` than 36 is available: 37">
+        <fix-replace
+            description="Set compileSdk to 37"
+            oldString="36"
+            replacement="37"
+            priority="0"/>
+        <location
+            file="${:vrm-material*projectDir}/build.gradle.kts"
+            line="7"
+            column="5"
+            startOffset="100"
+            endLine="7"
+            endColumn="20"
+            endOffset="115"/>
+    </incident>
+
+</incidents>

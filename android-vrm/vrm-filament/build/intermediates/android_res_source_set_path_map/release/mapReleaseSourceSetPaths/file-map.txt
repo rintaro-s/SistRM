@@ -1,0 +1,9 @@
+com.sisterm.vrm.filament.vrm-filament-pngs-0 /mnt/github/SistRM/android-vrm/vrm-filament/build/generated/res/pngs/release
+com.sisterm.vrm.filament.vrm-filament-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-filament/build/generated/updated_navigation_xml/release
+com.sisterm.vrm.filament.vrm-filament-mergeReleaseResources-2 /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+com.sisterm.vrm.filament.vrm-filament-mergeReleaseResources-3 /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+com.sisterm.vrm.filament.vrm-filament-release-4 /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/merged_res/release/mergeReleaseResources
+com.sisterm.vrm.filament.vrm-filament-release-5 /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/packaged_res/release/packageReleaseResources
+com.sisterm.vrm.filament.vrm-filament-main-6 /mnt/github/SistRM/android-vrm/vrm-filament/src/main/res
+com.sisterm.vrm.filament.vrm-filament-release-7 /mnt/github/SistRM/android-vrm/vrm-filament/src/release/res
+gradleHome-0 /home/rinta/.gradle

@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml:2:13-83
-INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml:2:13-83
+ADDED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml:2:13-83
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml:2:13-83
 	package
-		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml
 	xmlns:android
-		ADDED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml:2:23-81
+		ADDED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml:2:23-81
 uses-sdk
-INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml reason: use-sdk injection requested
-INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml
-INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml reason: use-sdk injection requested
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml
 	android:targetSdkVersion
-		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml
 	android:minSdkVersion
-		INJECTED from /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest2842456227588726928.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8996687641218587867.xml

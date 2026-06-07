@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.2.1" type="incidents">
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of `compileSdk` than 36 is available: 37">
+        <fix-replace
+            description="Set compileSdk to 37"
+            oldString="36"
+            replacement="37"
+            priority="0"/>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="8"
+            column="5"
+            startOffset="151"
+            endLine="8"
+            endColumn="20"
+            endOffset="166"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.java-websocket:Java-WebSocket than 1.5.6 is available: 1.6.0">
+        <fix-replace
+            description="Change to 1.6.0"
+            family="Update versions"
+            oldString="1.5.6"
+            replacement="1.6.0"
+            priority="0"/>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="22"
+            column="20"
+            startOffset="426"
+            endLine="22"
+            endColumn="61"
+            endOffset="467"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.8.1 is available: 1.11.0">
+        <fix-replace
+            description="Change to 1.11.0"
+            family="Update versions"
+            oldString="1.8.1"
+            replacement="1.11.0"
+            priority="0"/>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="23"
+            column="20"
+            startOffset="488"
+            endLine="23"
+            endColumn="76"
+            endOffset="544"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.1 is available: 1.11.0">
+        <fix-replace
+            description="Change to 1.11.0"
+            family="Update versions"
+            oldString="1.10.1"
+            replacement="1.11.0"
+            priority="0"/>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="24"
+            column="20"
+            startOffset="565"
+            endLine="24"
+            endColumn="77"
+            endOffset="622"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.java.websocket`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `java-websocket`"
+            robot="true"
+            independent="true"
+            replacement="libs.java.websocket"
+            priority="0">
+            <range
+                file="${:vrm-network*projectDir}/build.gradle.kts"
+                startOffset="426"
+                endOffset="467"/>
+        </fix-replace>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="22"
+            column="20"
+            startOffset="426"
+            endLine="22"
+            endColumn="61"
+            endOffset="467"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.kotlinx.serialization.json`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `kotlinx-serialization-json`"
+            robot="true"
+            independent="true"
+            replacement="libs.kotlinx.serialization.json"
+            priority="0">
+            <range
+                file="${:vrm-network*projectDir}/build.gradle.kts"
+                startOffset="488"
+                endOffset="544"/>
+        </fix-replace>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="23"
+            column="20"
+            startOffset="488"
+            endLine="23"
+            endColumn="76"
+            endOffset="544"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.kotlinx.coroutines.android`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `kotlinx-coroutines-android`"
+            robot="true"
+            independent="true"
+            replacement="libs.kotlinx.coroutines.android"
+            priority="0">
+            <range
+                file="${:vrm-network*projectDir}/build.gradle.kts"
+                startOffset="565"
+                endOffset="622"/>
+        </fix-replace>
+        <location
+            file="${:vrm-network*projectDir}/build.gradle.kts"
+            line="24"
+            column="20"
+            startOffset="565"
+            endLine="24"
+            endColumn="77"
+            endOffset="622"/>
+    </incident>
+
+</incidents>

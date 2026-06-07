@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml:2:13-83
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml:2:13-83
+	package
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml
+	xmlns:android
+		ADDED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml:2:23-81
+uses-sdk
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml reason: use-sdk injection requested
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml
+	android:targetSdkVersion
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml
+	android:minSdkVersion
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-constraint/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15422087396771931849.xml

@@ -162,6 +162,40 @@ data class Quaternion(
         return this
     }
 
+    /** Set from a 3×3 rotation matrix in standard order: row0=m00,m01,m02; row1=m10,m11,m12; row2=m20,m21,m22. */
+    fun setFromRotationMatrix(m00: Float, m01: Float, m02: Float,
+                               m10: Float, m11: Float, m12: Float,
+                               m20: Float, m21: Float, m22: Float): Quaternion {
+        val trace = m00 + m11 + m22
+        if (trace > 0.0f) {
+            val s = sqrt(trace + 1.0f)
+            x = (m21 - m12) / (2.0f * s)
+            y = (m02 - m20) / (2.0f * s)
+            z = (m10 - m01) / (2.0f * s)
+            w = s / 2.0f
+        } else if ((m00 > m11) && (m00 > m22)) {
+            val s = sqrt(1.0f + m00 - m11 - m22) * 2.0f
+            x = 0.5f * s
+            y = (m01 + m10) / s
+            z = (m02 + m20) / s
+            w = (m21 - m12) / s
+        } else if (m11 > m22) {
+            val s = sqrt(1.0f + m11 - m00 - m22) * 2.0f
+            x = (m01 + m10) / s
+            y = 0.5f * s
+            z = (m12 + m21) / s
+            w = (m02 - m20) / s
+        } else {
+            val s = sqrt(1.0f + m22 - m00 - m11) * 2.0f
+            x = (m02 + m20) / s
+            y = (m12 + m21) / s
+            z = 0.5f * s
+            w = (m10 - m01) / s
+        }
+        normalize()
+        return this
+    }
+
     fun clone(): Quaternion = Quaternion(x, y, z, w)
 
     companion object {

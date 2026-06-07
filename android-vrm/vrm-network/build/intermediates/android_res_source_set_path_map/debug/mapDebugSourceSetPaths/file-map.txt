@@ -1,9 +1,9 @@
-com.sisterm.vrm.network.vrm-network-pngs-0 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/generated/res/pngs/debug
-com.sisterm.vrm.network.vrm-network-updated_navigation_xml-1 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/generated/updated_navigation_xml/debug
-com.sisterm.vrm.network.vrm-network-mergeDebugResources-2 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
-com.sisterm.vrm.network.vrm-network-mergeDebugResources-3 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
-com.sisterm.vrm.network.vrm-network-debug-4 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/intermediates/merged_res/debug/mergeDebugResources
-com.sisterm.vrm.network.vrm-network-debug-5 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/build/intermediates/packaged_res/debug/packageDebugResources
-com.sisterm.vrm.network.vrm-network-debug-6 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/src/debug/res
-com.sisterm.vrm.network.vrm-network-main-7 /home/rinta/ドキュメント/github/SisterRM/android-vrm/vrm-network/src/main/res
+com.sisterm.vrm.network.vrm-network-pngs-0 /mnt/github/SistRM/android-vrm/vrm-network/build/generated/res/pngs/debug
+com.sisterm.vrm.network.vrm-network-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-network/build/generated/updated_navigation_xml/debug
+com.sisterm.vrm.network.vrm-network-mergeDebugResources-2 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
+com.sisterm.vrm.network.vrm-network-mergeDebugResources-3 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
+com.sisterm.vrm.network.vrm-network-debug-4 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/merged_res/debug/mergeDebugResources
+com.sisterm.vrm.network.vrm-network-debug-5 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/packaged_res/debug/packageDebugResources
+com.sisterm.vrm.network.vrm-network-debug-6 /mnt/github/SistRM/android-vrm/vrm-network/src/debug/res
+com.sisterm.vrm.network.vrm-network-main-7 /mnt/github/SistRM/android-vrm/vrm-network/src/main/res
 gradleHome-0 /home/rinta/.gradle

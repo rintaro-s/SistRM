@@ -1,0 +1,9 @@
+com.sisterm.vrm.material.vrm-material-pngs-0 /mnt/github/SistRM/android-vrm/vrm-material/build/generated/res/pngs/release
+com.sisterm.vrm.material.vrm-material-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-material/build/generated/updated_navigation_xml/release
+com.sisterm.vrm.material.vrm-material-mergeReleaseResources-2 /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+com.sisterm.vrm.material.vrm-material-mergeReleaseResources-3 /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+com.sisterm.vrm.material.vrm-material-release-4 /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/merged_res/release/mergeReleaseResources
+com.sisterm.vrm.material.vrm-material-release-5 /mnt/github/SistRM/android-vrm/vrm-material/build/intermediates/packaged_res/release/packageReleaseResources
+com.sisterm.vrm.material.vrm-material-main-6 /mnt/github/SistRM/android-vrm/vrm-material/src/main/res
+com.sisterm.vrm.material.vrm-material-release-7 /mnt/github/SistRM/android-vrm/vrm-material/src/release/res
+gradleHome-0 /home/rinta/.gradle

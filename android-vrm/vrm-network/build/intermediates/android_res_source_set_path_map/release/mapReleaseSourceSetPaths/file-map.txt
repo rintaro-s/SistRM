@@ -1,0 +1,9 @@
+com.sisterm.vrm.network.vrm-network-pngs-0 /mnt/github/SistRM/android-vrm/vrm-network/build/generated/res/pngs/release
+com.sisterm.vrm.network.vrm-network-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-network/build/generated/updated_navigation_xml/release
+com.sisterm.vrm.network.vrm-network-mergeReleaseResources-2 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+com.sisterm.vrm.network.vrm-network-mergeReleaseResources-3 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+com.sisterm.vrm.network.vrm-network-release-4 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/merged_res/release/mergeReleaseResources
+com.sisterm.vrm.network.vrm-network-release-5 /mnt/github/SistRM/android-vrm/vrm-network/build/intermediates/packaged_res/release/packageReleaseResources
+com.sisterm.vrm.network.vrm-network-main-6 /mnt/github/SistRM/android-vrm/vrm-network/src/main/res
+com.sisterm.vrm.network.vrm-network-release-7 /mnt/github/SistRM/android-vrm/vrm-network/src/release/res
+gradleHome-0 /home/rinta/.gradle

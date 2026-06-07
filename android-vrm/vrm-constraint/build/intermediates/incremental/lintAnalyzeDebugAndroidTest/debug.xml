@@ -1,0 +1,29 @@
+<variant
+    name="debug"
+    package="com.sisterm.vrm.constraint"
+    minSdkVersion="24"
+    targetSdkVersion="36.0"
+    debuggable="true"
+    mergedManifest="build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml"
+    partialResultsDir="build/intermediates/android_test_lint_partial_results/debug/lintAnalyzeDebugAndroidTest/out"
+    desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/86fcade1eabcf5f52ed77dc0937a0183/transformed/D8BackportedDesugaredMethods.txt">
+  <buildFeatures/>
+  <sourceProviders>
+  </sourceProviders>
+  <testSourceProviders>
+    <sourceProvider
+        manifests="src/androidTest/AndroidManifest.xml"
+        javaDirectories="src/androidTest/java:src/androidTestDebug/java:src/androidTest/kotlin:src/androidTestDebug/kotlin"
+        resDirectories="src/androidTest/res:src/androidTestDebug/res"
+        assetsDirectories="src/androidTest/assets:src/androidTestDebug/assets"
+        keepRulesDirectories="src/androidTest/keepRules:src/androidTestDebug/keepRules"
+        androidTest="true"/>
+  </testSourceProviders>
+  <testFixturesSourceProviders>
+  </testFixturesSourceProviders>
+  <artifact
+      type="INSTRUMENTATION_TEST"
+      applicationId="com.sisterm.vrm.constraint.test"
+      desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/86fcade1eabcf5f52ed77dc0937a0183/transformed/D8BackportedDesugaredMethods.txt">
+  </artifact>
+</variant>

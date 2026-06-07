@@ -105,13 +105,13 @@ import kotlinx.serialization.json.contentOrNull
 )
 
 @Serializable
- data class Vrm0SpringBoneCollider(
+data class Vrm0SpringBoneCollider(
     val offset: List<Float> = listOf(0f, 0f, 0f),
     val radius: Float = 0f
 )
 
 @Serializable
- data class Vrm0SpringBoneColliderGroup(
+data class Vrm0SpringBoneColliderGroup(
     val node: Int,
     val colliders: List<Vrm0SpringBoneCollider> = emptyList()
 )
@@ -152,13 +152,14 @@ import kotlinx.serialization.json.contentOrNull
 )
 
 @Serializable
- data class Vrm0Extension(
+data class Vrm0Extension(
     val exporterVersion: String = "",
     val specVersion: String = "0.0",
     val meta: Vrm0Meta = Vrm0Meta(),
     val humanoid: Vrm0Humanoid = Vrm0Humanoid(emptyList()),
     val blendShapeMaster: Vrm0BlendShapeMaster = Vrm0BlendShapeMaster(),
     val firstPerson: Vrm0FirstPerson = Vrm0FirstPerson(),
+    val springBoneColliderGroups: List<Vrm0SpringBoneColliderGroup> = emptyList(),
     val springBone: List<Vrm0SpringBone> = emptyList(),
     val materialProperties: List<Vrm0MaterialProperty> = emptyList()
 )
@@ -190,14 +191,13 @@ import kotlinx.serialization.json.contentOrNull
 
 @Serializable
  data class Vrm1HumanoidBone(
-    val bone: String,
     val node: Int,
     val useFirstPersonBone: Boolean = true
 )
 
 @Serializable
  data class Vrm1Humanoid(
-    val humanBones: List<Vrm1HumanoidBone> = emptyList()
+    val humanBones: Map<String, Vrm1HumanoidBone> = emptyMap()
 )
 
 @Serializable

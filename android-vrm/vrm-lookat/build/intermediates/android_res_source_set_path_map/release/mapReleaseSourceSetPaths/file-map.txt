@@ -1,0 +1,9 @@
+com.sisterm.vrm.lookat.vrm-lookat-pngs-0 /mnt/github/SistRM/android-vrm/vrm-lookat/build/generated/res/pngs/release
+com.sisterm.vrm.lookat.vrm-lookat-updated_navigation_xml-1 /mnt/github/SistRM/android-vrm/vrm-lookat/build/generated/updated_navigation_xml/release
+com.sisterm.vrm.lookat.vrm-lookat-mergeReleaseResources-2 /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+com.sisterm.vrm.lookat.vrm-lookat-mergeReleaseResources-3 /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+com.sisterm.vrm.lookat.vrm-lookat-release-4 /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/merged_res/release/mergeReleaseResources
+com.sisterm.vrm.lookat.vrm-lookat-release-5 /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/packaged_res/release/packageReleaseResources
+com.sisterm.vrm.lookat.vrm-lookat-main-6 /mnt/github/SistRM/android-vrm/vrm-lookat/src/main/res
+com.sisterm.vrm.lookat.vrm-lookat-release-7 /mnt/github/SistRM/android-vrm/vrm-lookat/src/release/res
+gradleHome-0 /home/rinta/.gradle
