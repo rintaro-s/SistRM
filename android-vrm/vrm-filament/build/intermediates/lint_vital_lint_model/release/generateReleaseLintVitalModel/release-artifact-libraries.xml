@@ -23,9 +23,9 @@
       resolved="org.jetbrains.kotlin:kotlin-stdlib:2.2.10"/>
   <library
       name="com.google.android.filament:filament-utils-android:1.71.5@aar"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/3c8fcc2315fbdee34fa2d198fd1f5448/transformed/filament-utils-android-1.71.5/jars/classes.jar"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/3287c73fb2cac9ff18b9d2eeae870860/transformed/filament-utils-android-1.71.5/jars/classes.jar"
       resolved="com.google.android.filament:filament-utils-android:1.71.5"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/3c8fcc2315fbdee34fa2d198fd1f5448/transformed/filament-utils-android-1.71.5"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/3287c73fb2cac9ff18b9d2eeae870860/transformed/filament-utils-android-1.71.5"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -36,9 +36,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="com.google.android.filament:gltfio-android:1.71.5@aar"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/2cbc339087b733a00376eb14559e1609/transformed/gltfio-android-1.71.5/jars/classes.jar"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/1f753d89f6ef19d0820244745f506847/transformed/gltfio-android-1.71.5/jars/classes.jar"
       resolved="com.google.android.filament:gltfio-android:1.71.5"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/2cbc339087b733a00376eb14559e1609/transformed/gltfio-android-1.71.5"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/1f753d89f6ef19d0820244745f506847/transformed/gltfio-android-1.71.5"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -49,9 +49,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="com.google.android.filament:filament-android:1.71.5@aar"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/b5e8df6229ee1b6f19909135a08b3e4e/transformed/filament-android-1.71.5/jars/classes.jar"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/39bea36f835f6b55c13012b24ea02b4a/transformed/filament-android-1.71.5/jars/classes.jar"
       resolved="com.google.android.filament:filament-android:1.71.5"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/b5e8df6229ee1b6f19909135a08b3e4e/transformed/filament-android-1.71.5"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/39bea36f835f6b55c13012b24ea02b4a/transformed/filament-android-1.71.5"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"

@@ -1,9 +1,9 @@
 <libraries>
   <library
       name=":@@:vrm-springbone::debug"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/8298fdc86116123d41f16707e60268b8/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/8298fdc86116123d41f16707e60268b8/transformed/out/jars/libs/R.jar"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/77a628fb95edf5c9de22b35c9e23a983/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/77a628fb95edf5c9de22b35c9e23a983/transformed/out/jars/libs/R.jar"
       resolved="VRM:vrm-springbone:unspecified"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/8298fdc86116123d41f16707e60268b8/transformed/out"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/77a628fb95edf5c9de22b35c9e23a983/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"

@@ -4,7 +4,7 @@
             "outputFile": "com.sisterm.vrm.filament.vrm-filament-release-4:/values/values.xml",
             "map": [
                 {
-                    "source": "/home/rinta/.gradle/caches/9.4.1/transforms/b5e8df6229ee1b6f19909135a08b3e4e/transformed/filament-android-1.71.5/res/values/values.xml",
+                    "source": "/home/rinta/.gradle/caches/9.4.1/transforms/39bea36f835f6b55c13012b24ea02b4a/transformed/filament-android-1.71.5/res/values/values.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -19,7 +19,7 @@
             "outputFile": "com.sisterm.vrm.filament.vrm-filament-mergeReleaseResources-2:/values/values.xml",
             "map": [
                 {
-                    "source": "/home/rinta/.gradle/caches/9.4.1/transforms/b5e8df6229ee1b6f19909135a08b3e4e/transformed/filament-android-1.71.5/res/values/values.xml",
+                    "source": "/home/rinta/.gradle/caches/9.4.1/transforms/39bea36f835f6b55c13012b24ea02b4a/transformed/filament-android-1.71.5/res/values/values.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",

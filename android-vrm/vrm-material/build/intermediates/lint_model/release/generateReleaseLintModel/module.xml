@@ -3,7 +3,7 @@
     dir="/mnt/github/SistRM/android-vrm/vrm-material"
     name=":vrm-material"
     type="LIBRARY"
-    maven="android-vrm:vrm-material:unspecified"
+    maven="VRM:vrm-material:unspecified"
     agpVersion="9.2.1"
     buildFolder="build"
     bootClassPath="/home/rinta/Android/Sdk/platforms/android-36/android.jar:/home/rinta/Android/Sdk/build-tools/36.0.0/core-lambda-stubs.jar"

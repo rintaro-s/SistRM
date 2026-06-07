@@ -6,7 +6,7 @@
     mergedManifest="build/intermediates/merged_manifest/release/processReleaseManifest/AndroidManifest.xml"
     proguardFiles="build/intermediates/default_proguard_files/global/proguard-android-optimize.txt-9.2.1"
     partialResultsDir="build/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-    desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/1bb6de1cb5b67197700dc21a61fbbebb/transformed/D8BackportedDesugaredMethods.txt">
+    desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/86fcade1eabcf5f52ed77dc0937a0183/transformed/D8BackportedDesugaredMethods.txt">
   <buildFeatures/>
   <sourceProviders>
     <sourceProvider
@@ -26,6 +26,6 @@
       type="MAIN"
       applicationId="com.sisterm.vrm.filament"
       generatedSourceFolders="build/generated/ap_generated_sources/release/out"
-      desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/1bb6de1cb5b67197700dc21a61fbbebb/transformed/D8BackportedDesugaredMethods.txt">
+      desugaredMethodsFiles="/home/rinta/.gradle/caches/9.4.1/transforms/86fcade1eabcf5f52ed77dc0937a0183/transformed/D8BackportedDesugaredMethods.txt">
   </artifact>
 </variant>

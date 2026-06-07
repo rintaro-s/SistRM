@@ -3,7 +3,7 @@
     dir="/mnt/github/SistRM/android-vrm/vrm-springbone"
     name=":vrm-springbone"
     type="LIBRARY"
-    maven="android-vrm:vrm-springbone:unspecified"
+    maven="VRM:vrm-springbone:unspecified"
     agpVersion="9.2.1"
     buildFolder="build"
     bootClassPath="/home/rinta/Android/Sdk/platforms/android-36/android.jar:/home/rinta/Android/Sdk/build-tools/36.0.0/core-lambda-stubs.jar"

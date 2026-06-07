@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml:2:13-83
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml:2:13-83
+ADDED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml:2:13-83
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml:2:13-83
 	package
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml
 	xmlns:android
-		ADDED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml:2:23-81
+		ADDED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml:2:23-81
 uses-sdk
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml reason: use-sdk injection requested
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml reason: use-sdk injection requested
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml
 	android:targetSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml
 	android:minSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest4115074282991654965.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-lookat/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest15022501593095804012.xml

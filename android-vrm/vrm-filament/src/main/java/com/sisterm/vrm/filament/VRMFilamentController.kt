@@ -90,6 +90,7 @@ class VRMFilamentController(
     private val nodeEntityMap = mutableMapOf<Int, Int>()      // gltf node index -> Filament entity
     private val nodeParentMap = mutableMapOf<Int, Int>()      // gltf node index -> parent gltf node index
     private val boneNodeMap = mutableMapOf<String, Int>()     // bone name -> gltf node index
+    private val allNodeNameEntityMap = mutableMapOf<String, Int>() // node name -> Filament entity (ALL nodes)
 
     // ========== Spring-bone integration ==========
     private val springBoneRuntime = SpringBoneRuntime()
@@ -98,6 +99,7 @@ class VRMFilamentController(
     private var springBoneBindLocals = mutableMapOf<Int, Triple<Vector3, Quaternion, Vector3>>() // node -> (pos, rot, scl) local bind
     private val springBoneJointNodes = mutableSetOf<Int>()    // nodes that are actual spring bone joints
     private var springBoneInitialized = false
+    var springBoneEnabled = false
 
     init {
         view.camera = camera
@@ -234,6 +236,7 @@ class VRMFilamentController(
         nodeEntityMap.clear()
         nodeParentMap.clear()
         boneNodeMap.clear()
+        allNodeNameEntityMap.clear()
         springBoneJointNodes.clear()
         springBoneNodeEntities.clear()
         springBoneNodeParents.clear()
@@ -247,6 +250,7 @@ class VRMFilamentController(
                 node.name?.let { name ->
                     asset.getEntitiesByName(name).firstOrNull()?.let { entity ->
                         nodeEntityMap[idx] = entity
+                        allNodeNameEntityMap[name] = entity
                     }
                 }
                 for (childIdx in node.children) {
@@ -296,11 +300,11 @@ class VRMFilamentController(
     override fun getExpressionWeight(name: String): Float = currentExpressionWeights[name] ?: 0f
     override fun resetExpressions() { currentExpressionWeights.clear() }
 
-    override fun getBoneNames(): List<String> = boneEntityMap.keys.toList()
+    override fun getBoneNames(): List<String> = allNodeNameEntityMap.keys.toList()
 
     override fun setBoneRotation(boneName: String, eulerX: Float, eulerY: Float, eulerZ: Float) {
-        val entity = boneEntityMap[boneName.lowercase()] ?: return
-        val bind = boneBindPoses[boneName.lowercase()] ?: return
+        val entity = allNodeNameEntityMap[boneName] ?: allNodeNameEntityMap[boneName.lowercase()] ?: return
+        val bind = boneBindPoses[boneName] ?: boneBindPoses[boneName.lowercase()] ?: return
 
         val bindPos = floatArrayOf(bind[0], bind[1], bind[2])
         val bindQuat = floatArrayOf(bind[3], bind[4], bind[5], bind[6])
@@ -324,8 +328,8 @@ class VRMFilamentController(
     }
 
     override fun resetBone(boneName: String) {
-        val entity = boneEntityMap[boneName.lowercase()] ?: return
-        val bind = boneBindPoses[boneName.lowercase()] ?: return
+        val entity = allNodeNameEntityMap[boneName] ?: allNodeNameEntityMap[boneName.lowercase()] ?: return
+        val bind = boneBindPoses[boneName] ?: boneBindPoses[boneName.lowercase()] ?: return
         val bindPos = floatArrayOf(bind[0], bind[1], bind[2])
         val bindQuat = floatArrayOf(bind[3], bind[4], bind[5], bind[6])
         val bindScl = floatArrayOf(bind[7], bind[8], bind[9])
@@ -345,7 +349,9 @@ class VRMFilamentController(
     }
 
     override fun resetAllBones() {
-        boneEntityMap.keys.forEach { resetBone(it) }
+        allNodeNameEntityMap.keys.forEach { resetBone(it) }
+        // Also reset spring bone particles so physics starts fresh from bind pose
+        springBoneRuntime.resetParticles()
     }
 
     override var firstPersonEnabled: Boolean
@@ -360,7 +366,7 @@ class VRMFilamentController(
         }
 
     override fun setLookAtTarget(x: Float, y: Float, z: Float) {
-        val headEntity = boneEntityMap["head"] ?: return
+        val headEntity = allNodeNameEntityMap["head"] ?: allNodeNameEntityMap["Head"] ?: return
         val tcm = engine.transformManager
         val headInstance = tcm.getInstance(headEntity)
         if (headInstance == 0) return
@@ -399,7 +405,9 @@ class VRMFilamentController(
         if (!isModelLoaded) return
         animator?.updateBoneMatrices()
         applyExpressionMorphsToRenderables()
-        applySpringBoneDeltasOnFrame(deltaTime)
+        if (springBoneEnabled) {
+            applySpringBoneDeltasOnFrame(deltaTime)
+        }
         if (transformDirty) {
             applyRootTransform()
             transformDirty = false
@@ -732,15 +740,16 @@ class VRMFilamentController(
     private fun captureBoneBindPoses() {
         boneBindPoses.clear()
         val tcm = engine.transformManager
-        boneEntityMap.forEach { (boneName, entity) ->
+        // Capture bind poses for ALL named nodes, not just humanoid bones
+        allNodeNameEntityMap.forEach { (nodeName, entity) ->
             val instance = tcm.getInstance(entity)
             if (instance == 0) return@forEach
             val worldMat = FloatArray(16)
             tcm.getTransform(instance, worldMat)
 
             // Convert world transform to local transform
-            val boneNodeIdx = boneNodeMap[boneName]
-            val parentNodeIdx = boneNodeIdx?.let { nodeParentMap[it] }
+            val nodeIdx = vrmData?.gltf?.nodes?.indexOfFirst { it.name == nodeName } ?: -1
+            val parentNodeIdx = if (nodeIdx >= 0) nodeParentMap[nodeIdx] else null
             val localMat = if (parentNodeIdx != null) {
                 val parentEntity = nodeEntityMap[parentNodeIdx]
                 if (parentEntity != null) {
@@ -759,7 +768,7 @@ class VRMFilamentController(
             } else worldMat
 
             val (pos, quat, scl) = decomposeMatrix(localMat)
-            boneBindPoses[boneName] = floatArrayOf(
+            boneBindPoses[nodeName] = floatArrayOf(
                 pos[0], pos[1], pos[2],
                 quat.x, quat.y, quat.z, quat.w,
                 scl[0], scl[1], scl[2]

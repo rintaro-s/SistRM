@@ -3,7 +3,7 @@
     dir="/mnt/github/SistRM/android-vrm/vrm-filament"
     name=":vrm-filament"
     type="LIBRARY"
-    maven="android-vrm:vrm-filament:unspecified"
+    maven="VRM:vrm-filament:unspecified"
     agpVersion="9.2.1"
     buildFolder="build"
     bootClassPath="/home/rinta/Android/Sdk/platforms/android-36/android.jar:/home/rinta/Android/Sdk/build-tools/36.0.0/core-lambda-stubs.jar"

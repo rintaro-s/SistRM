@@ -3,7 +3,7 @@
       roots=":@@:vrm-core::debug,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.1@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1@jar,org.jetbrains.kotlin:kotlin-stdlib:2.2.10@jar,org.jetbrains:annotations:23.0.0@jar">
     <dependency
         name=":@@:vrm-core::debug"
-        simpleName="android-vrm:vrm-core"/>
+        simpleName="VRM:vrm-core"/>
     <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.1@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"/>
@@ -21,7 +21,7 @@
       roots=":@@:vrm-core::debug,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.1@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1@jar,org.jetbrains.kotlin:kotlin-stdlib:2.2.10@jar,org.jetbrains:annotations:23.0.0@jar">
     <dependency
         name=":@@:vrm-core::debug"
-        simpleName="android-vrm:vrm-core"/>
+        simpleName="VRM:vrm-core"/>
     <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.1@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"/>

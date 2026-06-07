@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml:2:13-83
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml:2:13-83
+ADDED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml:2:13-83
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml:2:13-83
 	package
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml
 	xmlns:android
-		ADDED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml:2:23-81
+		ADDED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml:2:23-81
 uses-sdk
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml reason: use-sdk injection requested
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml
-INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml reason: use-sdk injection requested
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml
+INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml
 	android:targetSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml
 	android:minSdkVersion
-		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest18312654425570478661.xml
+		INJECTED from /mnt/github/SistRM/android-vrm/vrm-filament/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13104906434109524709.xml

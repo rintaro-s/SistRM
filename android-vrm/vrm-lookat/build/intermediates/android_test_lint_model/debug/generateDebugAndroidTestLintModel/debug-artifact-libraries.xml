@@ -1,9 +1,9 @@
 <libraries>
   <library
       name=":@@:vrm-lookat::debug"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/f0df6aad40b6d065002ba34d896a852d/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/f0df6aad40b6d065002ba34d896a852d/transformed/out/jars/libs/R.jar"
-      resolved="android-vrm:vrm-lookat:unspecified"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/f0df6aad40b6d065002ba34d896a852d/transformed/out"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/b37d31dd645627b54a05047c9a2ef22d/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/b37d31dd645627b54a05047c9a2ef22d/transformed/out/jars/libs/R.jar"
+      resolved="VRM:vrm-lookat:unspecified"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/b37d31dd645627b54a05047c9a2ef22d/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -14,9 +14,9 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:vrm-core::debug"
-      jars="/home/rinta/.gradle/caches/9.4.1/transforms/023aa104ce7536b97f76bb5be1fb838e/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/023aa104ce7536b97f76bb5be1fb838e/transformed/out/jars/libs/R.jar"
-      resolved="android-vrm:vrm-core:unspecified"
-      folder="/home/rinta/.gradle/caches/9.4.1/transforms/023aa104ce7536b97f76bb5be1fb838e/transformed/out"
+      jars="/home/rinta/.gradle/caches/9.4.1/transforms/6fd30f7da08555e609806e2f3b6fe43b/transformed/out/jars/classes.jar:/home/rinta/.gradle/caches/9.4.1/transforms/6fd30f7da08555e609806e2f3b6fe43b/transformed/out/jars/libs/R.jar"
+      resolved="VRM:vrm-core:unspecified"
+      folder="/home/rinta/.gradle/caches/9.4.1/transforms/6fd30f7da08555e609806e2f3b6fe43b/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"

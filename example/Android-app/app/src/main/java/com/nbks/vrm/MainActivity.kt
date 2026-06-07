@@ -4,29 +4,28 @@ import android.os.Bundle
 import android.view.SurfaceView
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.sisterm.vrm.filament.VRMController
 import com.sisterm.vrm.filament.VRMControllerListener
 import com.sisterm.vrm.filament.VRMFilamentController
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var controller: VRMController
+    private lateinit var controller: VRMFilamentController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Create SurfaceView and controller before Compose setup
         val surfaceView = SurfaceView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -39,7 +38,6 @@ class MainActivity : ComponentActivity() {
 
         setContentView(surfaceView)
 
-        // Overlay Compose UI on top of the SurfaceView
         val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -68,8 +66,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DemoOverlay(controller: VRMController) {
+fun DemoOverlay(controller: VRMFilamentController) {
     var isLoaded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var vrmTitle by remember { mutableStateOf("") }
@@ -77,6 +76,7 @@ fun DemoOverlay(controller: VRMController) {
     var vrmVersion by remember { mutableStateOf("") }
     var expressionNames by remember { mutableStateOf(listOf<String>()) }
     var boneNames by remember { mutableStateOf(listOf<String>()) }
+    var springBoneEnabled by remember { mutableStateOf(controller.springBoneEnabled) }
 
     LaunchedEffect(controller) {
         controller.setListener(object : VRMControllerListener {
@@ -97,7 +97,6 @@ fun DemoOverlay(controller: VRMController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top info panel
         if (isLoaded) {
             Card(
                 modifier = Modifier
@@ -135,12 +134,11 @@ fun DemoOverlay(controller: VRMController) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Bottom controls panel
         if (isLoaded) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp)
+                    .heightIn(max = 500.dp)
                     .padding(8.dp)
             ) {
                 Column(
@@ -151,30 +149,122 @@ fun DemoOverlay(controller: VRMController) {
                     Text("Controls", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Quick demo buttons
-                    Button(onClick = { controller.setExpression("happy", 1.0f) }) {
-                        Text("Happy")
+                    // Spring bone toggle
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = springBoneEnabled,
+                            onCheckedChange = {
+                                springBoneEnabled = it
+                                controller.springBoneEnabled = it
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Spring Bone (hair/cloth physics)")
                     }
-                    Button(onClick = { controller.setExpression("happy", 0.0f) }) {
-                        Text("Neutral")
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Expression controls
+                    if (expressionNames.isNotEmpty()) {
+                        Text("Expressions:", fontWeight = FontWeight.Bold)
+                        expressionNames.take(6).forEach { exprName ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(exprName, modifier = Modifier.width(80.dp))
+                                Slider(
+                                    value = controller.getExpressionWeight(exprName),
+                                    onValueChange = { controller.setExpression(exprName, it) },
+                                    modifier = Modifier.weight(1f),
+                                    valueRange = 0f..1f
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Button(onClick = {
-                        controller.setBoneRotation("head", 0.3f, 0.2f, 0f)
-                    }) {
-                        Text("Turn Head")
+
+                    // Bone rotation controls
+                    if (boneNames.isNotEmpty()) {
+                        Text("Bone Rotation:", fontWeight = FontWeight.Bold)
+                        var selectedBone by remember { mutableStateOf(boneNames.firstOrNull() ?: "") }
+                        var rotX by remember { mutableFloatStateOf(0f) }
+                        var rotY by remember { mutableFloatStateOf(0f) }
+                        var rotZ by remember { mutableFloatStateOf(0f) }
+
+                        // Bone selector
+                        var boneDropdownExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = boneDropdownExpanded,
+                            onExpandedChange = { boneDropdownExpanded = it }
+                        ) {
+                            TextField(
+                                value = selectedBone,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Select Bone") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = boneDropdownExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = boneDropdownExpanded,
+                                onDismissRequest = { boneDropdownExpanded = false }
+                            ) {
+                                boneNames.take(50).forEach { boneName ->
+                                    DropdownMenuItem(
+                                        text = { Text(boneName) },
+                                        onClick = {
+                                            selectedBone = boneName
+                                            boneDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Rotation sliders
+                        Text("X: ${"%.2f".format(rotX)}")
+                        Slider(value = rotX, onValueChange = { rotX = it }, valueRange = -3.14f..3.14f)
+                        Text("Y: ${"%.2f".format(rotY)}")
+                        Slider(value = rotY, onValueChange = { rotY = it }, valueRange = -3.14f..3.14f)
+                        Text("Z: ${"%.2f".format(rotZ)}")
+                        Slider(value = rotZ, onValueChange = { rotZ = it }, valueRange = -3.14f..3.14f)
+
+                        Row {
+                            Button(onClick = {
+                                controller.setBoneRotation(selectedBone, rotX, rotY, rotZ)
+                            }) {
+                                Text("Apply")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(onClick = {
+                                controller.resetBone(selectedBone)
+                                rotX = 0f; rotY = 0f; rotZ = 0f
+                            }) {
+                                Text("Reset Bone")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
+
+                    // Global reset
                     Button(onClick = {
                         controller.resetAllBones()
                         controller.resetExpressions()
                     }) {
-                        Text("Reset")
+                        Text("Reset All")
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("API:", fontWeight = FontWeight.Bold)
-                    Text("controller.setExpression(\"happy\", 0.8f)")
-                    Text("controller.setBoneRotation(\"head\", x, y, z)")
-                    Text("controller.firstPersonEnabled = true")
+                    Text("First Person:", fontWeight = FontWeight.Bold)
+                    var fpEnabled by remember { mutableStateOf(controller.firstPersonEnabled) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = fpEnabled,
+                            onCheckedChange = {
+                                fpEnabled = it
+                                controller.firstPersonEnabled = it
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Hide head/face/hair")
+                    }
                 }
             }
         }

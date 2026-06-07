@@ -3,7 +3,7 @@
     dir="/mnt/github/SistRM/android-vrm/vrm-constraint"
     name=":vrm-constraint"
     type="LIBRARY"
-    maven="android-vrm:vrm-constraint:unspecified"
+    maven="VRM:vrm-constraint:unspecified"
     agpVersion="9.2.1"
     buildFolder="build"
     bootClassPath="/home/rinta/Android/Sdk/platforms/android-36/android.jar:/home/rinta/Android/Sdk/build-tools/36.0.0/core-lambda-stubs.jar"

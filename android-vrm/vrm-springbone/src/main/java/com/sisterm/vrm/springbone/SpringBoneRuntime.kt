@@ -107,6 +107,11 @@ class SpringBoneLogic(
     val particles = mutableListOf<ParticleState>()
     var initialized = false
 
+    fun reset() {
+        initialized = false
+        particles.clear()
+    }
+
     fun initParticles(transforms: Map<Int, MutSpringTransform>) {
         particles.clear()
         for (j in joints) {
@@ -247,10 +252,15 @@ class SpringBoneRuntime {
 
     fun reset() {
         for (logic in logics) {
-            logic.initialized = false
-            logic.particles.clear()
+            logic.reset()
         }
         logics.clear()
+    }
+
+    fun resetParticles() {
+        for (logic in logics) {
+            logic.reset()
+        }
     }
 
     fun loadFromVrm1SpringBoneExtension(
@@ -544,23 +554,25 @@ class SpringBoneRuntime {
     ): Vector3 {
         val curNodeId = resolveNodeId(jIdx, boneNodes, joints[jIdx].boneIndex)
 
-        // Try to derive axis from next joint position
+        // Try to derive LOCAL axis from next joint world position
         if (jIdx < joints.size - 1) {
             val nextNodeId = resolveNodeId(jIdx + 1, boneNodes, joints[jIdx + 1].boneIndex)
             if (nextNodeId >= 0) {
                 val curT = transformsMap[curNodeId]
                 val nextT = transformsMap[nextNodeId]
                 if (curT != null && nextT != null) {
-                    val diff = nextT.position.clone().sub(curT.position)
-                    val len = diff.length()
+                    val diffWorld = nextT.position.clone().sub(curT.position)
+                    val invParentRot = curT.rotation.clone().invert()
+                    val diffLocal = diffWorld.clone().applyQuaternion(invParentRot)
+                    val len = diffLocal.length()
                     if (len > 1e-6f) {
-                        return diff.normalize()
+                        return diffLocal.normalize()
                     }
                 }
             }
         }
 
-        // Fall back to gltf node translation
+        // Fall back to gltf node translation (already in local space)
         if (gltfRoot != null && curNodeId >= 0 && curNodeId < gltfRoot.nodes.size) {
             val node = gltfRoot.nodes[curNodeId]
             val tx = node.translation.getOrNull(0) ?: 0f
@@ -584,23 +596,25 @@ class SpringBoneRuntime {
     ): Vector3 {
         val curNodeId = joints[jIdx].node
 
-        // Try to derive axis from next joint position
+        // Try to derive LOCAL axis from next joint world position
         if (jIdx < joints.size - 1) {
             val nextNodeId = joints[jIdx + 1].node
             if (nextNodeId >= 0) {
                 val curT = transformsMap[curNodeId]
                 val nextT = transformsMap[nextNodeId]
                 if (curT != null && nextT != null) {
-                    val diff = nextT.position.clone().sub(curT.position)
-                    val len = diff.length()
+                    val diffWorld = nextT.position.clone().sub(curT.position)
+                    val invParentRot = curT.rotation.clone().invert()
+                    val diffLocal = diffWorld.clone().applyQuaternion(invParentRot)
+                    val len = diffLocal.length()
                     if (len > 1e-6f) {
-                        return diff.normalize()
+                        return diffLocal.normalize()
                     }
                 }
             }
         }
 
-        // Fall back to gltf node translation
+        // Fall back to gltf node translation (already in local space)
         if (gltfRoot != null && curNodeId >= 0 && curNodeId < gltfRoot.nodes.size) {
             val node = gltfRoot.nodes[curNodeId]
             val tx = node.translation.getOrNull(0) ?: 0f
